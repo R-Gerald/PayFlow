@@ -1,0 +1,26 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nom du client"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Num\u00e9ro de t\u00e9l\u00e9phone"
+    },
+    "note": {
+      "type": "string",
+      "description": "Note ou commentaire"
+    },
+    "total_due": {
+      "type": "number",
+      "default": 0,
+      "description": "Solde total d\u00fb par le client"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

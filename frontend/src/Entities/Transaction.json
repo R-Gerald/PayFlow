@@ -1,0 +1,45 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "ID du client"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "debt",
+        "payment"
+      ],
+      "description": "Type: dette ou paiement"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Montant de la transaction"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description de la transaction"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date de la transaction"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date d'\u00e9ch\u00e9ance (pour les dettes)"
+    },
+    "payment_method": {
+      "type": "string",
+      "description": "Mode de paiement"
+    }
+  },
+  "required": [
+    "client_id",
+    "type",
+    "amount"
+  ]
+}
