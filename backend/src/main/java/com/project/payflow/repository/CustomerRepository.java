@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CustomerRepository extends JpaRepository<Customer,Long> {
     List<Customer> findByMerchantId(Long merchantId);
+    Long countByMerchantId(Long merchantId);
 }

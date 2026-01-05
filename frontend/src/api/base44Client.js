@@ -1,63 +1,96 @@
 // src/api/base44Client.js
-import clientsData from "@/Entities/Client.json";
-import transactionsData from "@/Entities/Transaction.json";
+import axios from "axios";
 
-// On travaille avec des tableaux en mémoire
-let clients = [];
-let transactions = [];
+// Backend Spring Boot
+const api = axios.create({
+  baseURL: "http://localhost:8080/api",
+});
 
-// petit init si tu veux mettre des données par défaut plus tard
-// pour l’instant ils restent vides
-
-function generateId() {
-  // ID simple côté front
-  return Math.random().toString(36).slice(2);
-}
+// Pour l'instant merchant fixe
+const MERCHANT_ID = 3;
 
 export const base44 = {
   entities: {
     Client: {
-      // renvoie la liste des clients
       async list() {
-        return clients;
+        const res = await api.get(`/merchants/${MERCHANT_ID}/customers`);
+        // Backend: CustomerDto { id, name, phone, notes }
+        // Front: attend en plus total_due -> pour l'instant 0 (sera recalculé plus tard)
+        return res.data.map((c) => ({
+          ...c,
+          total_due: Number(c.totalDue ?? 0),
+        }));
       },
 
-      // crée un client
       async create(data) {
-        const newClient = {
-          id: generateId(),
-          total_due: 0,
-          ...data,
+        // data vient du formulaire AddClientDialog : { name, phone, note }
+        const payload = {
+          name: data.name,
+          phone: data.phone,
+          notes: data.note ?? data.notes ?? "",
         };
-        clients.push(newClient);
-        return newClient;
+        const res = await api.post(
+          `/merchants/${MERCHANT_ID}/customers`,
+          payload
+        );
+        return {
+          ...res.data,
+          total_due: 0,
+        };
       },
     },
 
     Transaction: {
-      // renvoie la liste des transactions
+      // Récupérer toutes les transactions du merchant
       async list() {
-        return transactions;
-      },
+  const res = await api.get(`/merchants/${MERCHANT_ID}/transactions`);
+  console.log("API transactions:", res.data);
+  const mapped = res.data.map((t) => ({
+    id: t.id,
+    client_id: t.customerId,
+    type: t.type === "PAYMENT" ? "payment" : "debt",
+    amount: Number(t.amount ?? 0),
+    description: t.description,
+    date: t.transactionDate,
+    due_date: t.dueDate,
+    payment_method: t.paymentMethod,
+  }));
+  console.log("Mapped transactions:", mapped);
+  return mapped;
+},
 
-      // crée une transaction et met à jour le total_due du client
+      // Créer une nouvelle transaction
       async create(data) {
-        const newTransaction = {
-          id: generateId(),
-          date: new Date().toISOString().slice(0, 10),
-          ...data,
+        // data vient de tes dialogs (AddPaymentDialog, AddDebtDialog)
+        // On suppose une structure de type :
+        //   { client_id, type: 'payment' | 'debt', amount, description, date, due_date, payment_method }
+        const payload = {
+          customerId: data.client_id,
+          type: data.type === "payment" ? "PAYMENT" : "CREDIT",
+          amount: data.amount,
+          description: data.description,
+          transactionDate: data.date,      // si null, backend mettra LocalDate.now()
+          dueDate: data.due_date,
+          paymentMethod: data.payment_method,
         };
-        transactions.push(newTransaction);
 
-        const client = clients.find(c => c.id === data.client_id);
-        if (client) {
-          if (data.type === "debt") {
-            client.total_due += data.amount || 0;
-          } else if (data.type === "payment") {
-            client.total_due -= data.amount || 0;
-          }
-        }
-        return newTransaction;
+        const res = await api.post(
+          `/merchants/${MERCHANT_ID}/transactions`,
+          payload
+        );
+
+        const t = res.data;
+        // On renvoie dans le même format que list()
+        return {
+          id: t.id,
+          client_id: t.customerId,
+          type: t.type === "PAYMENT" ? "payment" : "debt",
+          amount: Number(t.amount ?? 0),
+          description: t.description,
+          date: t.transactionDate,
+          due_date: t.dueDate,
+          payment_method: t.paymentMethod,
+        };
       },
     },
   },

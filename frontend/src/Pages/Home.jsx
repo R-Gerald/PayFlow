@@ -1,62 +1,92 @@
+// src/Pages/Home.jsx
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, TrendingUp, Wallet, Plus, Search, ArrowUpDown, Loader2 } from "lucide-react";
+import {
+  Users,
+  TrendingUp,
+  Wallet,
+  Plus,
+  Search,
+  ArrowUpDown,
+  Loader2,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatsCard from "@/components/dashboard/StatsCard";
 import ClientCard from "@/components/clients/ClientCard";
 import AddClientDialog from "@/components/clients/AddClientDialog";
 
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('amount');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("amount");
   const [showAddClient, setShowAddClient] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: clients = [], isLoading: loadingClients } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => base44.entities.Client.list()
+  // --- Chargement des clients (avec total_due fourni par le backend)
+  const {
+    data: clients = [],
+    isLoading: loadingClients,
+  } = useQuery({
+    queryKey: ["clients"],
+    queryFn: () => base44.entities.Client.list(),
   });
 
+  // --- Chargement des transactions
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list()
+    queryKey: ["transactions"],
+    queryFn: () => base44.entities.Transaction.list(),
   });
 
+  // --- Création d'un client
   const createClientMutation = useMutation({
     mutationFn: (data) => base44.entities.Client.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
   });
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-MG').format(amount || 0);
+    return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
 
-  // Calculate stats
-  const totalDue = clients.reduce((sum, c) => sum + (c.total_due || 0), 0);
-  const totalPayments = transactions
-    .filter(t => t.type === 'payment')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-  const clientsWithDebt = clients.filter(c => c.total_due > 0).length;
+  // --- Calcul des stats globales à partir des données backend
 
-  // Check for overdue debts per client
+  // total dû = somme des total_due > 0
+  const totalDue = clients
+    .filter((c) => (c.total_due || 0) > 0)
+    .reduce((sum, c) => sum + (c.total_due || 0), 0);
+
+  // total des paiements = somme des transactions de type "payment"
+  const totalPayments = transactions
+    .filter((t) => t.type === "payment")
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  // nombre de clients avec crédit
+  const clientsWithDebt = clients.filter((c) => (c.total_due || 0) > 0).length;
+
+  // --- Clients en retard (overdue) d'après les transactions
   const clientOverdueStatus = {};
-  transactions.forEach(t => {
-    if (t.type === 'debt' && t.due_date && new Date(t.due_date) < new Date()) {
+  transactions.forEach((t) => {
+    if (
+      t.type === "debt" &&
+      t.due_date &&
+      new Date(t.due_date) < new Date()
+    ) {
       clientOverdueStatus[t.client_id] = true;
     }
   });
 
-  // Filter and sort clients
+  // --- Filtrer + trier les clients
   const filteredClients = clients
-    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter(c => c.total_due > 0 || searchQuery === '')
+    .filter((c) =>
+      c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .filter((c) => c.total_due > 0 || searchQuery === "")
     .sort((a, b) => {
-      if (sortBy === 'amount') return (b.total_due || 0) - (a.total_due || 0);
+      if (sortBy === "amount")
+        return (b.total_due || 0) - (a.total_due || 0);
       return a.name.localeCompare(b.name);
     });
 
@@ -64,13 +94,17 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 sm:mb-8"
         >
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800">PayFlow</h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-1">Gérez vos crédits simplement</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800">
+            PayFlow
+          </h1>
+          <p className="text-sm sm:text-base text-slate-500 mt-1">
+            Gérez vos crédits simplement
+          </p>
         </motion.div>
 
         {/* Stats Grid */}
@@ -112,7 +146,9 @@ export default function Home() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setSortBy(sortBy === 'amount' ? 'name' : 'amount')}
+            onClick={() =>
+              setSortBy(sortBy === "amount" ? "name" : "amount")
+            }
             className="bg-white/80"
           >
             <ArrowUpDown className="h-4 w-4" />
@@ -127,16 +163,18 @@ export default function Home() {
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
             ) : filteredClients.length === 0 ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-center py-12"
               >
                 <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500">
-                  {searchQuery ? 'Aucun client trouvé' : 'Aucun client avec crédit'}
+                  {searchQuery
+                    ? "Aucun client trouvé"
+                    : "Aucun client avec crédit"}
                 </p>
-                <Button 
+                <Button
                   className="mt-4"
                   onClick={() => setShowAddClient(true)}
                 >
@@ -152,8 +190,8 @@ export default function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <ClientCard 
-                    client={client} 
+                  <ClientCard
+                    client={client}
                     hasOverdue={clientOverdueStatus[client.id]}
                   />
                 </motion.div>
