@@ -200,10 +200,7 @@ export default function Statistics() {
               </h3>
               <div className="space-y-3">
                 {topDebtors.map((client, index) => (
-                  <Link 
-                    key={client.id}
-                    to={createPageUrl(`ClientDetail?id=${client.id}`)}
-                  >
+                  <Link to={`/clients/${client.id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-medium text-slate-600">

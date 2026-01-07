@@ -44,7 +44,6 @@ export const base44 = {
       // Récupérer toutes les transactions du merchant
       async list() {
   const res = await api.get(`/merchants/${MERCHANT_ID}/transactions`);
-  console.log("API transactions:", res.data);
   const mapped = res.data.map((t) => ({
     id: t.id,
     client_id: t.customerId,
@@ -55,7 +54,6 @@ export const base44 = {
     due_date: t.dueDate,
     payment_method: t.paymentMethod,
   }));
-  console.log("Mapped transactions:", mapped);
   return mapped;
 },
 

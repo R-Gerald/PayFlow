@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  User, Phone, FileText, ChevronLeft, Plus, CreditCard, 
-  Loader2, MoreVertical, Trash2, Edit
+import {
+  User,
+  Phone,
+  FileText,
+  ChevronLeft,
+  Plus,
+  CreditCard,
+  Loader2,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -32,72 +39,75 @@ import AddDebtDialog from "@/components/transactions/AddDebtDialog";
 import AddPaymentDialog from "@/components/transactions/AddPaymentDialog";
 
 export default function ClientDetail() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const clientId = urlParams.get('id');
-  
+  // depuis l'URL /clients/:id
+  const { id } = useParams();
+  const clientId = id ? Number(id) : null;
+
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  const { data: client, isLoading: loadingClient } = useQuery({
-    queryKey: ['client', clientId],
+  // 2) Charger le client courant
+  const {
+    data: client,
+    isLoading: loadingClient,
+  } = useQuery({
+    queryKey: ["client", clientId],
     queryFn: async () => {
       const allClients = await base44.entities.Client.list();
-      return allClients.find(c => c.id === clientId);
+      return allClients.find((c) => c.id === clientId);
     },
-    enabled: !!clientId
+    enabled: clientId != null,
   });
 
-  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
-    queryKey: ['transactions', clientId],
+  // 3) Charger les transactions du client
+  const {
+    data: transactions = [],
+    isLoading: loadingTransactions,
+  } = useQuery({
+    queryKey: ["transactions", clientId],
     queryFn: async () => {
       const allTransactions = await base44.entities.Transaction.list();
       return allTransactions
-        .filter(t => t.client_id === clientId)
+        .filter((t) => t.client_id === clientId)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
     },
-    enabled: !!clientId
+    enabled: clientId != null,
   });
 
+  // 4) Création d'une transaction (dette ou paiement)
   const createTransactionMutation = useMutation({
     mutationFn: async (data) => {
       await base44.entities.Transaction.create({
         ...data,
-        client_id: clientId
+        client_id: clientId,
       });
-      
-      // Update client total
-      const newTotal = data.type === 'debt'
-        ? (client.total_due || 0) + data.amount
-        : (client.total_due || 0) - data.amount;
-      
-      await base44.entities.Client.update(clientId, {
-        total_due: Math.max(0, newTotal)
-      });
+      // On ne met plus à jour total_due ici : le backend le recalcule
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['transactions', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
   });
 
+  // 5) Suppression du client (TODO: implémenter delete côté backend + base44Client)
   const deleteClientMutation = useMutation({
     mutationFn: async () => {
-      // Delete all transactions first
-      for (const t of transactions) {
-        await base44.entities.Transaction.delete(t.id);
-      }
-      await base44.entities.Client.delete(clientId);
+      // À adapter quand tu auras les endpoints DELETE
+      // Pour l'instant on peut simplement naviguer en arrière
+      // ou implémenter base44.entities.Client.delete/Transaction.delete
+      console.warn("Delete non implémenté côté backend");
     },
     onSuccess: () => {
-      window.location.href = createPageUrl('Home');
-    }
+      navigate(createPageUrl("Home"));
+    },
   });
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-MG').format(amount || 0);
+    return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
 
   if (loadingClient) {
@@ -113,7 +123,7 @@ export default function ClientDetail() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
         <div className="text-center">
           <p className="text-slate-500">Client non trouvé</p>
-          <Link to={createPageUrl('Home')}>
+          <Link to={createPageUrl("Home")}>
             <Button className="mt-4">Retour</Button>
           </Link>
         </div>
@@ -127,13 +137,19 @@ export default function ClientDetail() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-            <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+            <Link to={createPageUrl("Clients")}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+              >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-800 truncate">{client.name}</h1>
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-800 truncate">
+                {client.name}
+              </h1>
               {client.phone && (
                 <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1">
                   <Phone className="h-3 w-3" />
@@ -142,15 +158,19 @@ export default function ClientDetail() {
               )}
             </div>
           </div>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+              >
                 <MoreVertical className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 className="text-red-600"
                 onClick={() => setShowDeleteDialog(true)}
               >
@@ -169,7 +189,8 @@ export default function ClientDetail() {
           <Card className="p-4 sm:p-6 mb-4 sm:mb-6 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0">
             <p className="text-slate-400 text-xs sm:text-sm">Solde dû</p>
             <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1">
-              {formatAmount(client.total_due)} <span className="text-base sm:text-xl">Ar</span>
+              {formatAmount(client.total_due)}{" "}
+              <span className="text-base sm:text-xl">Ar</span>
             </p>
             {client.note && (
               <p className="text-slate-400 text-xs sm:text-sm mt-2 sm:mt-3 flex items-center gap-2">
@@ -201,8 +222,10 @@ export default function ClientDetail() {
 
         {/* Transactions History */}
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4">Historique</h2>
-          
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4">
+            Historique
+          </h2>
+
           <div className="space-y-2 sm:space-y-3">
             <AnimatePresence>
               {loadingTransactions ? (
@@ -210,7 +233,7 @@ export default function ClientDetail() {
                   <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
               ) : transactions.length === 0 ? (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-center py-12 bg-white/50 rounded-xl"
@@ -255,7 +278,8 @@ export default function ClientDetail() {
             <AlertDialogHeader>
               <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
               <AlertDialogDescription>
-                Cette action supprimera définitivement le client "{client.name}" et tout son historique de transactions.
+                Cette action supprimera définitivement le client "
+                {client.name}" et tout son historique de transactions.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

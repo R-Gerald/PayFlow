@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Phone, ChevronRight, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 export default function ClientCard({ client, hasOverdue }) {
@@ -12,7 +11,7 @@ export default function ClientCard({ client, hasOverdue }) {
   };
 
   return (
-    <Link to={createPageUrl(`ClientDetail?id=${client.id}`)}>
+    <Link to={`/clients/${client.id}`}>
       <motion.div
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
@@ -25,7 +24,9 @@ export default function ClientCard({ client, hasOverdue }) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-sm sm:text-base text-slate-800 truncate">{client.name}</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-slate-800 truncate">
+                    {client.name}
+                  </h3>
                   {hasOverdue && (
                     <Badge variant="destructive" className="text-xs px-1.5 sm:px-2 py-0 flex-shrink-0">
                       <AlertCircle className="h-3 w-3 sm:mr-1" />
@@ -43,8 +44,14 @@ export default function ClientCard({ client, hasOverdue }) {
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <div className="text-right">
-                <p className="text-xs text-slate-500 uppercase tracking-wide hidden sm:block">Solde dû</p>
-                <p className={`font-bold text-base sm:text-lg ${client.total_due > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                <p className="text-xs text-slate-500 uppercase tracking-wide hidden sm:block">
+                  Solde dû
+                </p>
+                <p
+                  className={`font-bold text-base sm:text-lg ${
+                    client.total_due > 0 ? "text-amber-600" : "text-emerald-600"
+                  }`}
+                >
                   {formatAmount(client.total_due)}
                 </p>
               </div>
