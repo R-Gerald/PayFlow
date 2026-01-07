@@ -1,4 +1,3 @@
-// src/api/base44Client.js
 import axios from "axios";
 
 // Backend Spring Boot
