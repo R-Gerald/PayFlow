@@ -95,6 +95,7 @@ PayFlow/
 │  ├─ package.json
 │  └─ vite.config.js
 └─ README.md
+```
 
 3.Prérequis
 
