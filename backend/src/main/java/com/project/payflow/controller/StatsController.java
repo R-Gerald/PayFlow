@@ -1,8 +1,11 @@
 package com.project.payflow.controller;
 
 import com.project.payflow.dto.StatsDto;
+import com.project.payflow.entities.Merchant;
 import com.project.payflow.repository.CustomerRepository;
 import com.project.payflow.repository.TransactionRepository;
+
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -10,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/merchants/{merchantId}/stats")
+@RequestMapping("/api/me/stats")
 public class StatsController {
 
     private final TransactionRepository transactionRepository;
@@ -23,7 +26,11 @@ public class StatsController {
     }
 
     @GetMapping
-    public StatsDto getStats(@PathVariable Long merchantId) {
+    public StatsDto getStats() {
+          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getPrincipal();
+    Long merchantId = authMerchant.getId();
         // Totaux global CREDIT/PAYMENT
         Object[] totalsRow = transactionRepository.findTotalsByMerchant(merchantId);
         BigDecimal totalCredits = totalsRow != null && totalsRow[0] != null ? (BigDecimal) totalsRow[0] : BigDecimal.ZERO;

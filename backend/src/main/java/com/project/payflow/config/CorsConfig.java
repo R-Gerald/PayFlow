@@ -1,3 +1,4 @@
+// src/main/java/com/project/payflow/config/CorsConfig.java
 package com.project.payflow.config;
 
 import org.springframework.context.annotation.Bean;

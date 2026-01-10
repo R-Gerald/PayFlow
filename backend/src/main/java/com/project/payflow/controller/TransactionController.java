@@ -6,6 +6,7 @@ import com.project.payflow.repository.MerchantRepository;
 import com.project.payflow.repository.TransactionRepository;
 import com.project.payflow.dto.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,7 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/merchants/{merchantId}/transactions")
+@RequestMapping("/api/me/transactions")
 public class TransactionController {
 
     private final TransactionRepository transactionRepository;
@@ -30,7 +31,11 @@ public class TransactionController {
 
     //Liste des transactions d'un merchant (tous clients)
     @GetMapping
-    public List<TransactionDto> list(@PathVariable Long merchantId) {
+    public List<TransactionDto> list() {
+          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getPrincipal();
+    Long merchantId = authMerchant.getId();
         return transactionRepository.findByMerchantId(merchantId)
                 .stream()
                 .map(TransactionDto::fromEntity)
@@ -40,8 +45,11 @@ public class TransactionController {
     //Créer une transaction
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TransactionDto create(@PathVariable Long merchantId,
-                                 @RequestBody CreateTransactionRequest request) {
+    public TransactionDto create(@RequestBody CreateTransactionRequest request) {
+          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getPrincipal();
+    Long merchantId = authMerchant.getId();
 
         if (request.getCustomerId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");

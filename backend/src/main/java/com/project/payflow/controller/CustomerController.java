@@ -9,6 +9,8 @@ import com.project.payflow.repository.CustomerRepository;
 import com.project.payflow.repository.MerchantRepository;
 import com.project.payflow.repository.TransactionRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/merchants/{merchantId}/customers")
+@RequestMapping("/api/me/customers")
 public class CustomerController {
 
     private final CustomerRepository customerRepository;
@@ -34,7 +36,16 @@ public class CustomerController {
     }
 
     @GetMapping
-    public List<CustomerDto> list(@PathVariable Long merchantId) {
+    public List<CustomerDto> list() {
+           Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    System.out.println("[CUSTOMERS] Auth = " + auth);
+
+    if (auth == null || !(auth.getPrincipal() instanceof Merchant)) {
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authenticated");
+    }
+
+    Merchant authMerchant = (Merchant) auth.getPrincipal();
+    Long merchantId = authMerchant.getId();
         // 1) charger tous les clients du merchant
         List<Customer> customers = customerRepository.findByMerchantId(merchantId);
 
@@ -54,8 +65,11 @@ public class CustomerController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CustomerDto create(@PathVariable Long merchantId,
-                              @RequestBody CreateCustomerRequest request) {
+    public CustomerDto create(@RequestBody CreateCustomerRequest request) {
+          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getPrincipal();
+        Long merchantId = authMerchant.getId();
 
         Merchant merchant = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Merchant not found"));
