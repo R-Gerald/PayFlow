@@ -189,7 +189,7 @@ Des requêtes JPQL calculent :
 
 ### 3.2 Intégration API
 
-- `src/api/base44Client.js` :
+- `src/api/baseClientByG.js` :
   - Configure un axios instance avec `baseURL: http://localhost:8080/api`.
   - Interceptor `request` :
     - lit `payflow_token` dans `localStorage`,
@@ -221,7 +221,7 @@ PayFlow/
 ├─ frontend/
 │  ├─ src/
 │  │  ├─ App.jsx, main.jsx
-│  │  ├─ api/base44Client.js
+│  │  ├─ api/baseClientByG.js
 │  │  ├─ Pages/
 │  │  │  ├─ Login.jsx
 │  │  │  ├─ Register.jsx
