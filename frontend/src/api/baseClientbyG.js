@@ -1,20 +1,40 @@
 // src/api/base44Client.js
 import axios from "axios";
+import {getToken,clearToken} from "@/lib/auth";
 
 // Backend Spring Boot
 const api = axios.create({
   baseURL: "http://localhost:8080/api",
 });
 
-// Si tu as déjà un JWT côté front, tu pourras ajouter un interceptor ici
-// pour mettre automatiquement Authorization: Bearer <token> sur chaque requête.
- api.interceptors.request.use((config) => {
-   const token = localStorage.getItem("payflow_token");
-   if (token) {
-     config.headers.Authorization = `Bearer ${token}`;
-   }
-   return config;
- });
+ // Interceptor REQUEST: ajoute le JWT si présent
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Interceptor RESPONSE: gère 401/403 -> logout automatique
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+
+    if (status === 401 || status === 403) {
+      clearToken();
+      localStorage.removeItem("payflow_merchant_id");
+      localStorage.removeItem("payflow_merchant_name");
+
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export const base44 = {
   entities: {
