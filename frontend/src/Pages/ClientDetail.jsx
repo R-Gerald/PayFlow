@@ -1,29 +1,22 @@
-import React, { useState } from "react";
+// src/Pages/ClientDetail.jsx
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/baseClientbyG";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  User,
   Phone,
   FileText,
   ChevronLeft,
   Plus,
   CreditCard,
   Loader2,
-  MoreVertical,
   Trash2,
+  Edit,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,17 +32,23 @@ import AddDebtDialog from "@/components/transactions/AddDebtDialog";
 import AddPaymentDialog from "@/components/transactions/AddPaymentDialog";
 
 export default function ClientDetail() {
-  // depuis l'URL /clients/:id
   const { id } = useParams();
   const clientId = id ? Number(id) : null;
 
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
+  // États pour l'édition
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // 2) Charger le client courant
+  // Charger le client courant
   const {
     data: client,
     isLoading: loadingClient,
@@ -62,7 +61,16 @@ export default function ClientDetail() {
     enabled: clientId != null,
   });
 
-  // 3) Charger les transactions du client
+  // Sync des champs d'édition quand le client est chargé
+  useEffect(() => {
+    if (client) {
+      setEditName(client.name || "");
+      setEditPhone(client.phone || "");
+      setEditNotes(client.notes || client.note || "");
+    }
+  }, [client]);
+
+  // Charger les transactions du client
   const {
     data: transactions = [],
     isLoading: loadingTransactions,
@@ -77,14 +85,13 @@ export default function ClientDetail() {
     enabled: clientId != null,
   });
 
-  // 4) Création d'une transaction (dette ou paiement)
+  // Création d'une transaction (dette ou paiement)
   const createTransactionMutation = useMutation({
     mutationFn: async (data) => {
       await base44.entities.Transaction.create({
         ...data,
         client_id: clientId,
       });
-      // On ne met plus à jour total_due ici : le backend le recalcule
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
@@ -93,16 +100,30 @@ export default function ClientDetail() {
     },
   });
 
-  // 5) Suppression du client (TODO: implémenter delete côté backend + base44Client)
-  const deleteClientMutation = useMutation({
+  // Mise à jour du client
+  const updateClientMutation = useMutation({
     mutationFn: async () => {
-      // À adapter quand tu auras les endpoints DELETE
-      // Pour l'instant on peut simplement naviguer en arrière
-      // ou implémenter base44.entities.Client.delete/Transaction.delete
-      console.warn("Delete non implémenté côté backend");
+      return base44.entities.Client.update(clientId, {
+        name: editName,
+        phone: editPhone,
+        notes: editNotes,
+      });
     },
     onSuccess: () => {
-      navigate(createPageUrl("Home"));
+      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setShowEditDialog(false);
+    },
+  });
+
+  // Suppression du client
+  const deleteClientMutation = useMutation({
+    mutationFn: async () => {
+      await base44.entities.Client.delete(clientId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      navigate(createPageUrl("Home"), { replace: true });
     },
   });
 
@@ -133,52 +154,29 @@ export default function ClientDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-            <Link to={createPageUrl("Clients")}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-800 truncate">
-                {client.name}
-              </h1>
-              {client.phone && (
-                <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {client.phone}
-                </p>
-              )}
-            </div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24">
+        {/* Header simple */}
+        <div className="flex items-center mb-4 sm:mb-6">
+          <Link to={createPageUrl("Clients")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div className="ml-2 sm:ml-4">
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-800">
+              {client.name}
+            </h1>
+            {client.phone && (
+              <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1 mt-1">
+                <Phone className="h-3 w-3" />
+                {client.phone}
+              </p>
+            )}
           </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Supprimer le client
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {/* Balance Card */}
@@ -186,22 +184,46 @@ export default function ClientDetail() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="p-4 sm:p-6 mb-4 sm:mb-6 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0">
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-4 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0">
             <p className="text-slate-400 text-xs sm:text-sm">Solde dû</p>
             <p className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-1">
               {formatAmount(client.total_due)}{" "}
               <span className="text-base sm:text-xl">Ar</span>
             </p>
-            {client.note && (
+            {(client.note || client.notes) && (
               <p className="text-slate-400 text-xs sm:text-sm mt-2 sm:mt-3 flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                <span className="truncate">{client.note}</span>
+                <span className="truncate">
+                  {client.note || client.notes}
+                </span>
               </p>
             )}
           </Card>
         </motion.div>
 
-        {/* Action Buttons */}
+        {/* Actions client : Modifier / Supprimer */}
+        <div className="flex justify-end gap-2 mb-4 sm:mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEditDialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Modifier
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+            className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Supprimer
+          </Button>
+        </div>
+
+        {/* Boutons Ajouter dette / paiement */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-8">
           <Button
             className="h-12 sm:h-14 bg-amber-500 hover:bg-amber-600 text-white text-sm sm:text-base"
@@ -257,7 +279,7 @@ export default function ClientDetail() {
           </div>
         </div>
 
-        {/* Dialogs */}
+        {/* Dialogs ajout dette/paiement */}
         <AddDebtDialog
           open={showAddDebt}
           onOpenChange={setShowAddDebt}
@@ -273,6 +295,65 @@ export default function ClientDetail() {
           maxAmount={client.total_due}
         />
 
+        {/* Dialog édition client */}
+        <AlertDialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Modifier le client</AlertDialogTitle>
+              <AlertDialogDescription>
+                Modifiez les informations du client puis enregistrez.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-2">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">
+                  Nom
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">
+                  Téléphone
+                </label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => updateClientMutation.mutate()}
+              >
+                {updateClientMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Enregistrer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog suppression client */}
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>

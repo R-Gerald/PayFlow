@@ -49,6 +49,27 @@ export const base44 = {
           total_due: 0,
         };
       },
+
+      async update(id, data) {
+        const payload = {
+          name: data.name,
+          phone: data.phone,
+          notes: data.notes ?? data.note ?? "",
+        };
+        const res = await api.put(`/me/customers/${id}`, payload);
+        return {
+          id: res.data.id,
+          name: res.data.name,
+          phone: res.data.phone,
+          notes: res.data.notes,
+          total_due: Number(res.data.totalDue ?? 0),
+        };
+      },
+
+      async delete(id) {
+        await api.delete(`/me/customers/${id}`);
+      },
+
     },
 
     Transaction: {
