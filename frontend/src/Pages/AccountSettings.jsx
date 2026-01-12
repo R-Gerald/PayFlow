@@ -7,6 +7,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { User, Phone, Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const api = axios.create({
   baseURL: "http://localhost:8080/api",
@@ -32,6 +33,7 @@ export default function AccountSettings() {
 
   const [merchantName, setMerchantName] = useState("");
   const [merchantPhone, setMerchantPhone] = useState("");
+  const{toast}=useToast();
 
   // Rediriger si non authentifié
   if (!isAuthenticated()) {
@@ -53,6 +55,11 @@ export default function AccountSettings() {
 
     if (newPassword !== confirm) {
       setError("Les deux nouveaux mots de passe ne correspondent pas.");
+      toast({
+        title: "Les mots de passe ne correspondent pas",
+        description: "Veuillez saisir deux fois le même nouveau mot de passe.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -66,12 +73,27 @@ export default function AccountSettings() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirm("");
+     toast({
+        title: "Mot de passe mis à jour",
+        description: "Votre mot de passe a été modifié avec succès.",
+      });
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 401) {
         setError("L'ancien mot de passe est incorrect.");
+        toast({
+          title: "Ancien mot de passe incorrect",
+          description: "Veuillez vérifier votre ancien mot de passe.",
+          variant: "destructive",
+        });
       } else {
         setError("Erreur lors du changement de mot de passe.");
+        toast({
+          title: "Erreur",
+          description:
+            "Une erreur est survenue lors du changement de mot de passe.",
+          variant: "destructive",
+        });
       }
     } finally {
       setLoading(false);

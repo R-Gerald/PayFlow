@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isAuthenticated, setToken } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const api = axios.create({
   baseURL: "http://localhost:8080/api",
@@ -18,6 +19,7 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const{toast}=useState();
 
   // Si déjà connecté, pas besoin de s'inscrire
   if (isAuthenticated()) {
@@ -46,12 +48,29 @@ export default function Register() {
       localStorage.setItem("payflow_merchant_phone", phone);
 
       navigate("/");
+       toast({
+          title: "Compte creé ",
+          description:
+            `Bienvenue ${name}`,
+        });
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 409) {
         setError("Ce numéro de téléphone est déjà utilisé.");
+         toast({
+          title: "Erreur",
+          description:
+            "Ce numéro de téléphone est déjà utilisé.",
+          variant: "destructive",
+        });
       } else {
         setError("Erreur lors de l'inscription. Vérifiez les champs.");
+         toast({
+          title: "Erreur",
+          description:
+            "Erreur lors de l'inscription. Vérifiez les champs.",
+          variant: "destructive",
+        });
       }
     } finally {
       setLoading(false);

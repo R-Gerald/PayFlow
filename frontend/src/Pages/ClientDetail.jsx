@@ -30,6 +30,7 @@ import {
 import TransactionItem from "@/components/transactions/TransactionItem";
 import AddDebtDialog from "@/components/transactions/AddDebtDialog";
 import AddPaymentDialog from "@/components/transactions/AddPaymentDialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -47,6 +48,7 @@ export default function ClientDetail() {
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const{toast}=useToast();
 
   // Charger le client courant
   const {
@@ -97,6 +99,10 @@ export default function ClientDetail() {
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
       queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+       toast({
+        title: "Transaction réussie",
+        description: "Votre transaction a été effectuée avec succès.",
+      });
     },
   });
 
@@ -113,6 +119,17 @@ export default function ClientDetail() {
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       setShowEditDialog(false);
+      toast({
+        title: "Client mis à jour",
+        description: "Les informations du client ont été modifiées.",
+      });
+    },
+     onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le client.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -124,6 +141,17 @@ export default function ClientDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       navigate(createPageUrl("Home"), { replace: true });
+      toast({
+        title: "Client supprimé",
+        description: `Le client "${client.name}" a été supprimé.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le client.",
+        variant: "destructive",
+      });
     },
   });
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setToken } from "@/lib/auth";
 import { isAuthenticated } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 
 
@@ -20,6 +21,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const{toast}=useToast();
 
 
   if (isAuthenticated()) {
@@ -41,9 +43,20 @@ export default function Login() {
 
       // Rediriger vers la page d'accueil
       navigate("/");
+       toast({
+          title: "Compte connecté ",
+          description:
+            `Ravis de vous revoir ${name}`,
+        });
     } catch (err) {
       console.error(err);
       setError("Téléphone ou mot de passe incorrect.");
+      toast({
+          title: "Erreur",
+          description:
+            "Téléphone ou mot de passe incorrect.",
+          variant: "destructive",
+        });
     } finally {
       setLoading(false);
     }
