@@ -33,12 +33,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Object[]> findClientBalancesByMerchant(Long merchantId);
 
     // Totaux globaux pour les stats (JPQL)
-    @Query("""
-        select
-          sum(case when t.type = com.project.payflow.entities.TransactionType.CREDIT then t.amount else 0 end),
-          sum(case when t.type = com.project.payflow.entities.TransactionType.PAYMENT then t.amount else 0 end)
-        from Transaction t
-        where t.merchant.id = :merchantId
-        """)
-    Object[] findTotalsByMerchant(Long merchantId);
+   // src/main/java/com/project/payflow/repository/TransactionRepository.java
+
+@Query("""
+    select
+      sum(case when t.type = com.project.payflow.entities.TransactionType.CREDIT then t.amount else 0 end),
+      sum(case when t.type = com.project.payflow.entities.TransactionType.PAYMENT then t.amount else 0 end)
+    from Transaction t
+    where t.merchant.id = :merchantId
+    """)
+java.util.List<Object[]> findTotalsByMerchant(Long merchantId);
 }

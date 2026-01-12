@@ -36,6 +36,13 @@ export default function Home() {
     queryKey: ["transactions"],
     queryFn: () => base44.entities.Transaction.list(),
   });
+  const {
+  data: stats,
+  isLoading: loadingStats,
+} = useQuery({
+  queryKey: ["stats"],
+  queryFn: () => base44.entities.Stats.get(),
+});
 
   const createClientMutation = useMutation({
     mutationFn: (data) => base44.entities.Client.create(data),
@@ -44,19 +51,15 @@ export default function Home() {
     },
   });
 
+
   const formatAmount = (amount) => {
     return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
 
-  const totalDue = clients
-    .filter((c) => (c.total_due || 0) > 0)
-    .reduce((sum, c) => sum + (c.total_due || 0), 0);
-
-  const totalPayments = transactions
-    .filter((t) => t.type === "payment")
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  const clientsWithDebt = clients.filter((c) => (c.total_due || 0) > 0).length;
+  const totalDue = stats ? Number(stats.totalDue ?? 0) : 0;
+const totalPayments = stats ? Number(stats.totalPayments ?? 0) : 0;
+const clientsWithDebt = stats ? stats.clientsWithDebt ?? 0 : 0;
+const clientsTotal = stats ? stats.clientsTotal ?? clients.length : clients.length;
 
   const clientOverdueStatus = {};
   transactions.forEach((t) => {
@@ -113,12 +116,12 @@ export default function Home() {
           />
           <div className="sm:col-span-2 lg:col-span-1">
             <StatsCard
-              title="Clients avec crédit"
-              value={clientsWithDebt}
-              subtitle={`sur ${clients.length} clients au total`}
-              icon={Users}
-              color="blue"
-            />
+  title="Clients avec crédit"
+  value={clientsWithDebt}
+  subtitle={`sur ${clientsTotal} clients au total`}
+  icon={Users}
+  color="blue"
+/>
           </div>
         </div>
 

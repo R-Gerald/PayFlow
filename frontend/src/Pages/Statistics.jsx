@@ -1,56 +1,86 @@
-import React from 'react';
-import { base44 } from '@/api/baseClientbyG';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+// src/Pages/Statistics.jsx
+import React from "react";
+import { base44 } from "@/api/baseClientbyG";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { 
-  ChevronLeft, TrendingUp, Wallet, Users, PieChart as PieChartIcon,
-  Loader2, ArrowUpRight, ArrowDownRight
+import {
+  ChevronLeft,
+  TrendingUp,
+  Wallet,
+  Users,
+  PieChart as PieChartIcon,
+  Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
 export default function Statistics() {
-  const { data: clients = [], isLoading: loadingClients } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => base44.entities.Client.list()
+  // Stats globales depuis le backend
+  const {
+    data: stats,
+    isLoading: loadingStats,
+  } = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => base44.entities.Stats.get(),
   });
 
-  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list()
+  // Clients pour la répartition et le top 5
+  const {
+    data: clients = [],
+    isLoading: loadingClients,
+  } = useQuery({
+    queryKey: ["clients"],
+    queryFn: () => base44.entities.Client.list(),
+  });
+
+  // Transactions pour les calculs plus fins (si besoin, ex: totalDebts)
+  const {
+    data: transactions = [],
+    isLoading: loadingTransactions,
+  } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: () => base44.entities.Transaction.list(),
   });
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('fr-MG').format(amount || 0);
+    return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
 
-  // Calculate statistics
-  const totalDue = clients.reduce((sum, c) => sum + (c.total_due || 0), 0);
-  const totalPayments = transactions
-    .filter(t => t.type === 'payment')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-  const totalDebts = transactions
-    .filter(t => t.type === 'debt')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-  const clientsWithDebt = clients.filter(c => c.total_due > 0).length;
-  const clientsPaid = clients.filter(c => c.total_due === 0).length;
+  // Utilisation des stats backend
+  const totalDue = stats ? Number(stats.totalDue ?? 0) : 0;
+  const totalPayments = stats ? Number(stats.totalPayments ?? 0) : 0;
+  const clientsWithDebt = stats ? stats.clientsWithDebt ?? 0 : 0;
+  const clientsTotal = stats ? stats.clientsTotal ?? clients.length : clients.length;
 
-  // Top debtors
+  // Pour le graphe, on a aussi besoin du total des dettes brutes (optionnel)
+  const totalDebts = transactions
+    .filter((t) => t.type === "debt")
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const clientsPaid = clientsTotal - clientsWithDebt;
+
+  // Top debtors (toujours à partir des clients avec total_due calculé côté backend)
   const topDebtors = [...clients]
-    .filter(c => c.total_due > 0)
+    .filter((c) => c.total_due > 0)
     .sort((a, b) => (b.total_due || 0) - (a.total_due || 0))
     .slice(0, 5);
 
-  // Pie chart data
+  // Pie chart data (Répartition des montants)
   const pieData = [
-    { name: 'Récupéré', value: totalPayments, color: '#10B981' },
-    { name: 'En attente', value: totalDue, color: '#F59E0B' }
-  ].filter(d => d.value > 0);
+    { name: "Récupéré", value: totalPayments, color: "#10B981" },
+    { name: "En attente", value: totalDue, color: "#F59E0B" },
+  ].filter((d) => d.value > 0);
 
-  const isLoading = loadingClients || loadingTransactions;
+  const isLoading = loadingStats || loadingClients || loadingTransactions;
 
   if (isLoading) {
     return (
@@ -65,14 +95,22 @@ export default function Statistics() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
         {/* Header */}
         <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <Link to={createPageUrl('Home')}>
-            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+          <Link to={createPageUrl("Home")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 sm:h-10 sm:w-10"
+            >
               <ChevronLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">Statistiques</h1>
-            <p className="text-slate-500 text-xs sm:text-sm">Vue d'ensemble de vos crédits</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
+              Statistiques
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm">
+              Vue d&apos;ensemble de vos crédits
+            </p>
           </div>
         </div>
 
@@ -87,9 +125,13 @@ export default function Statistics() {
                 <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg">
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <span className="text-amber-100 text-xs sm:text-sm">Total dû</span>
+                <span className="text-amber-100 text-xs sm:text-sm">
+                  Total dû
+                </span>
               </div>
-              <p className="text-xl sm:text-2xl font-bold">{formatAmount(totalDue)} Ar</p>
+              <p className="text-xl sm:text-2xl font-bold">
+                {formatAmount(totalDue)} Ar
+              </p>
             </Card>
           </motion.div>
 
@@ -103,9 +145,13 @@ export default function Statistics() {
                 <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg">
                   <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <span className="text-emerald-100 text-xs sm:text-sm">Récupéré</span>
+                <span className="text-emerald-100 text-xs sm:text-sm">
+                  Récupéré
+                </span>
               </div>
-              <p className="text-xl sm:text-2xl font-bold">{formatAmount(totalPayments)} Ar</p>
+              <p className="text-xl sm:text-2xl font-bold">
+                {formatAmount(totalPayments)} Ar
+              </p>
             </Card>
           </motion.div>
         </div>
@@ -123,15 +169,23 @@ export default function Statistics() {
             </h3>
             <div className="grid grid-cols-3 gap-3 sm:gap-4 text-center">
               <div>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-800">{clients.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-slate-800">
+                  {clientsTotal}
+                </p>
                 <p className="text-xs sm:text-sm text-slate-500">Total</p>
               </div>
               <div>
-                <p className="text-2xl sm:text-3xl font-bold text-amber-600">{clientsWithDebt}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Avec crédit</p>
+                <p className="text-2xl sm:text-3xl font-bold text-amber-600">
+                  {clientsWithDebt}
+                </p>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Avec crédit
+                </p>
               </div>
               <div>
-                <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{clientsPaid}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-600">
+                  {clientsPaid}
+                </p>
                 <p className="text-xs sm:text-sm text-slate-500">À jour</p>
               </div>
             </div>
@@ -166,7 +220,7 @@ export default function Statistics() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value) => [`${formatAmount(value)} Ar`]}
                     />
                   </PieChart>
@@ -175,11 +229,13 @@ export default function Statistics() {
               <div className="flex justify-center gap-6 mt-4">
                 {pieData.map((item, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <div 
+                    <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-sm text-slate-600">{item.name}</span>
+                    <span className="text-sm text-slate-600">
+                      {item.name}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -200,13 +256,15 @@ export default function Statistics() {
               </h3>
               <div className="space-y-3">
                 {topDebtors.map((client, index) => (
-                  <Link to={`/clients/${client.id}`}>
+                  <Link key={client.id} to={`/clients/${client.id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-medium text-slate-600">
                           {index + 1}
                         </div>
-                        <span className="font-medium text-slate-800">{client.name}</span>
+                        <span className="font-medium text-slate-800">
+                          {client.name}
+                        </span>
                       </div>
                       <span className="font-semibold text-amber-600">
                         {formatAmount(client.total_due)} Ar

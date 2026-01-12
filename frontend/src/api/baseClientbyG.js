@@ -137,5 +137,11 @@ export const base44 = {
         };
       },
     },
+    Stats: {
+      async get() {
+        const res = await api.get("/me/stats");
+        return res.data; // { totalDue, totalPayments, clientsWithDebt, clientsTotal }
+      },
+    },
   },
 };
