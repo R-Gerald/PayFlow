@@ -87,25 +87,48 @@ export default function ClientDetail() {
     enabled: clientId != null,
   });
 
-  // Création d'une transaction (dette ou paiement)
-  const createTransactionMutation = useMutation({
-    mutationFn: async (data) => {
-      await base44.entities.Transaction.create({
-        ...data,
-        client_id: clientId,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
-      queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
-       toast({
-        title: "Transaction réussie",
-        description: "Votre transaction a été effectuée avec succès.",
-      });
-    },
-  });
+ // Création d'une transaction (dette ou paiement)
+const createTransactionMutation = useMutation({
+  mutationFn: async (data) => {
+    await base44.entities.Transaction.create({
+      ...data,
+      client_id: clientId,
+    });
+  },
+  // variables = data passé à mutate/mutateAsync
+  onSuccess: (_data, variables) => {
+    queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
 
+    const isPayment = variables.type === "payment";
+    const amount = variables.amount || 0;
+
+    if (isPayment) {
+      toast({
+        title: "Paiement enregistré",
+        description: `Un paiement de ${new Intl.NumberFormat("fr-MG").format(
+          amount
+        )} Ar a été enregistré pour ${client.name}.`,
+      });
+    } else {
+      // type === "debt"
+      toast({
+        title: "Dette ajoutée",
+        description: `Une dette de ${new Intl.NumberFormat("fr-MG").format(
+          amount
+        )} Ar a été ajoutée pour ${client.name}.`,
+      });
+    }
+  },
+  onError: () => {
+    toast({
+      title: "Erreur",
+      description: "La transaction n'a pas pu être enregistrée.",
+      variant: "destructive",
+    });
+  },
+});
   // Mise à jour du client
   const updateClientMutation = useMutation({
     mutationFn: async () => {
