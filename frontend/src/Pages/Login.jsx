@@ -37,6 +37,7 @@ export default function Login() {
       setToken(token);
       localStorage.setItem("payflow_merchant_id", merchantId);
       localStorage.setItem("payflow_merchant_name", name);
+      localStorage.setItem("payflow_merchant_phone", phone);
 
       // Rediriger vers la page d'accueil
       navigate("/");

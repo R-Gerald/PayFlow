@@ -43,6 +43,7 @@ export default function Register() {
       setToken(token);
       localStorage.setItem("payflow_merchant_id", merchantId);
       localStorage.setItem("payflow_merchant_name", merchantName);
+      localStorage.setItem("payflow_merchant_phone", phone);
 
       navigate("/");
     } catch (err) {

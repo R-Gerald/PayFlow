@@ -10,6 +10,7 @@ import Statistics from "./Pages/Statistics.jsx";
 import Login from "./Pages/Login.jsx";
 import Register from "./Pages/Register.jsx";
 import RequireAuth from "./RequireAuth.jsx";
+import AccountSettings from "./Pages/AccountSettings";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/clients/:id" element={<ClientDetail />} />
                   <Route path="/statistics" element={<Statistics />} />
+                  <Route path="/account" element={<AccountSettings />} />
                 </Routes>
               </Layout>
             </RequireAuth>
