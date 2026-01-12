@@ -30,6 +30,7 @@ export default function Layout({ children }) {
     clearToken();
     localStorage.removeItem("payflow_merchant_id");
     localStorage.removeItem("payflow_merchant_name");
+    localStorage.removeItem("payflow_merchant_phone");
     navigate("/login", { replace: true });
   };
 
@@ -42,46 +43,57 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 relative">
-      {/* Zone utilisateur + boutons Paramètres et Déconnexion en haut à droite */}
-      <div className="fixed top-3 right-4 sm:top-4 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-white/70 backdrop-blur rounded-full px-2 sm:px-3 py-1 shadow-sm">
-        <div className="flex items-center gap-1 sm:gap-2 max-w-[140px] sm:max-w-xs">
-          <User className="h-4 w-4 text-slate-500" />
-          <span className="text-xs sm:text-sm font-medium text-slate-700 truncate">
-            {merchantName}
-          </span>
+      {/* Header global */}
+      <div className="fixed top-3 right-4 sm:top-4 sm:right-6 z-50">
+        {/* Version desktop/tablette (≥ sm): nom + paramètres + déconnexion */}
+        <div className="hidden sm:flex items-center gap-3 bg-white/70 backdrop-blur rounded-full px-3 py-1.5 shadow-sm">
+          <div className="flex items-center gap-2 max-w-[180px]">
+            <User className="h-4 w-4 text-slate-500" />
+            <span className="text-sm font-medium text-slate-700 truncate">
+              {merchantName}
+            </span>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToAccount}
+            className="flex items-center gap-1 text-xs h-8 px-3"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Paramètres
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-1 text-xs h-8 px-3"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Déconnexion
+          </Button>
         </div>
 
-        {/* Bouton Paramètres */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={goToAccount}
-          className="hidden sm:flex items-center gap-1 text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          Paramètres
-        </Button>
-
-        {/* Version icône seule sur mobile */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={goToAccount}
-          className="flex sm:hidden h-7 w-7 p-0"
-        >
-          <Settings className="h-3.5 w-3.5" />
-        </Button>
-
-        {/* Bouton Déconnexion */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleLogout}
-          className="flex items-center gap-1 text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Déconnexion
-        </Button>
+        {/* Version mobile (< sm): très compact, juste icône user + bouton logout */}
+        <div className="flex sm:hidden items-center gap-2 bg-white/80 backdrop-blur rounded-full px-2 py-1 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToAccount}
+            className="h-7 w-7 p-0"
+          >
+            <User className="h-4 w-4 text-slate-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleLogout}
+            className="h-7 w-7 p-0"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Contenu des pages */}

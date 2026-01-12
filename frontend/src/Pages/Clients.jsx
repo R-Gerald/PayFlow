@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/baseClientbyG';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+// src/Pages/Clients.jsx
+import React, { useState } from "react";
+import { base44 } from "@/api/baseClientbyG";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Plus, Search, ArrowUpDown, Loader2, ChevronLeft, Filter } from "lucide-react";
+import {
+  Users,
+  Plus,
+  Search,
+  ArrowUpDown,
+  Loader2,
+  ChevronLeft,
+  Filter,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   DropdownMenu,
@@ -17,47 +26,47 @@ import ClientCard from "@/components/clients/ClientCard";
 import AddClientDialog from "@/components/clients/AddClientDialog";
 
 export default function Clients() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('amount');
-  const [filterDebt, setFilterDebt] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("amount");
+  const [filterDebt, setFilterDebt] = useState("all");
   const [showAddClient, setShowAddClient] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: clients = [], isLoading } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => base44.entities.Client.list()
+    queryKey: ["clients"],
+    queryFn: () => base44.entities.Client.list(),
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list()
+    queryKey: ["transactions"],
+    queryFn: () => base44.entities.Transaction.list(),
   });
 
   const createClientMutation = useMutation({
     mutationFn: (data) => base44.entities.Client.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
   });
 
   // Check for overdue debts per client
   const clientOverdueStatus = {};
-  transactions.forEach(t => {
-    if (t.type === 'debt' && t.due_date && new Date(t.due_date) < new Date()) {
+  transactions.forEach((t) => {
+    if (t.type === "debt" && t.due_date && new Date(t.due_date) < new Date()) {
       clientOverdueStatus[t.client_id] = true;
     }
   });
 
   // Filter and sort clients
   const filteredClients = clients
-    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter(c => {
-      if (filterDebt === 'with_debt') return c.total_due > 0;
-      if (filterDebt === 'overdue') return clientOverdueStatus[c.id];
+    .filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((c) => {
+      if (filterDebt === "with_debt") return c.total_due > 0;
+      if (filterDebt === "overdue") return clientOverdueStatus[c.id];
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'amount') return (b.total_due || 0) - (a.total_due || 0);
+      if (sortBy === "amount") return (b.total_due || 0) - (a.total_due || 0);
       return a.name.localeCompare(b.name);
     });
 
@@ -66,14 +75,22 @@ export default function Clients() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24">
         {/* Header */}
         <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <Link to={createPageUrl('Home')}>
-            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+          <Link to={createPageUrl("Home")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 sm:h-10 sm:w-10"
+            >
               <ChevronLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">Mes clients</h1>
-            <p className="text-slate-500 text-xs sm:text-sm">{clients.length} clients au total</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
+              Mes clients
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm">
+              {clients.length} clients au total
+            </p>
           </div>
         </div>
 
@@ -85,34 +102,40 @@ export default function Clients() {
               placeholder="Rechercher un client..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white/80 border-slate-200"
+              className="pl-10 bg-white/80 border-slate-200 text-sm sm:text-base"
             />
           </div>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="bg-white/80">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-white/80 h-9 w-9 sm:h-10 sm:w-10"
+              >
                 <Filter className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setFilterDebt('all')}>
+              <DropdownMenuItem onClick={() => setFilterDebt("all")}>
                 Tous les clients
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterDebt('with_debt')}>
+              <DropdownMenuItem onClick={() => setFilterDebt("with_debt")}>
                 Avec crédit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterDebt('overdue')}>
+              <DropdownMenuItem onClick={() => setFilterDebt("overdue")}>
                 En retard
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setSortBy(sortBy === 'amount' ? 'name' : 'amount')}
-            className="bg-white/80"
+            onClick={() =>
+              setSortBy(sortBy === "amount" ? "name" : "amount")
+            }
+            className="bg-white/80 h-9 w-9 sm:h-10 sm:w-10"
           >
             <ArrowUpDown className="h-4 w-4" />
           </Button>
@@ -126,16 +149,16 @@ export default function Clients() {
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
             ) : filteredClients.length === 0 ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-center py-12"
               >
                 <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500">
-                  {searchQuery ? 'Aucun client trouvé' : 'Aucun client'}
+                  {searchQuery ? "Aucun client trouvé" : "Aucun client"}
                 </p>
-                <Button 
+                <Button
                   className="mt-4"
                   onClick={() => setShowAddClient(true)}
                 >
@@ -151,7 +174,7 @@ export default function Clients() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
                 >
-                  <ClientCard 
+                  <ClientCard
                     client={client}
                     hasOverdue={clientOverdueStatus[client.id]}
                   />
@@ -161,11 +184,11 @@ export default function Clients() {
           </AnimatePresence>
         </div>
 
-        {/* Floating Add Button */}
+        {/* Floating Add Client Button - toujours visible */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40"
+          className="fixed right-4 bottom-20 md:bottom-24 z-[60]"
         >
           <Button
             size="lg"

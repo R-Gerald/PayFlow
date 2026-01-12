@@ -24,7 +24,6 @@ export default function Home() {
   const [showAddClient, setShowAddClient] = useState(false);
   const queryClient = useQueryClient();
 
-  // --- Chargement des clients (avec total_due fourni par le backend)
   const {
     data: clients = [],
     isLoading: loadingClients,
@@ -33,13 +32,11 @@ export default function Home() {
     queryFn: () => base44.entities.Client.list(),
   });
 
-  // --- Chargement des transactions
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: () => base44.entities.Transaction.list(),
   });
 
-  // --- Création d'un client
   const createClientMutation = useMutation({
     mutationFn: (data) => base44.entities.Client.create(data),
     onSuccess: () => {
@@ -51,22 +48,16 @@ export default function Home() {
     return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
 
-  // --- Calcul des stats globales à partir des données backend
-
-  // total dû = somme des total_due > 0
   const totalDue = clients
     .filter((c) => (c.total_due || 0) > 0)
     .reduce((sum, c) => sum + (c.total_due || 0), 0);
 
-  // total des paiements = somme des transactions de type "payment"
   const totalPayments = transactions
     .filter((t) => t.type === "payment")
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  // nombre de clients avec crédit
   const clientsWithDebt = clients.filter((c) => (c.total_due || 0) > 0).length;
 
-  // --- Clients en retard (overdue) d'après les transactions
   const clientOverdueStatus = {};
   transactions.forEach((t) => {
     if (
@@ -78,7 +69,6 @@ export default function Home() {
     }
   });
 
-  // --- Filtrer + trier les clients
   const filteredClients = clients
     .filter((c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -200,11 +190,11 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {/* Floating Add Button */}
+        {/* Floating Add Button - harmonisé avec Clients.jsx */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40"
+          className="fixed right-4 bottom-20 md:bottom-24 z-[60]"
         >
           <Button
             size="lg"
