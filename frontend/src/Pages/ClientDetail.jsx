@@ -6,6 +6,11 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import Papa from "papaparse";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { Download } from "lucide-react";
+
 import {
   Phone,
   FileText,
@@ -186,6 +191,76 @@ const createTransactionMutation = useMutation({
     },
   });
 
+  const exportCSV = () => {
+  if (!transactions.length) return;
+
+  const data = transactions.map((t) => ({
+    Date: new Date(t.date).toLocaleDateString("fr-FR"),
+    Type: t.type === "debt" ? "Dette" : "Paiement",
+    Montant: t.amount,
+    Description: t.description || "",
+  }));
+
+  const csv = Papa.unparse(data);
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute(
+    "download",
+    `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.csv`
+  );
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+const formatAr = (value) => {
+  if (value === null || value === undefined) return "0 Ar";
+
+  return `${Number(value)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} Ar`;
+};
+
+const exportPDF = () => {
+  if (!transactions.length) return;
+
+  const doc = new jsPDF();
+
+  doc.setFontSize(14);
+  doc.text(`Historique des transactions`, 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Client : ${client.name}`, 14, 22);
+
+  if (fromDate || toDate) {
+    doc.text(
+      `Période : ${fromDate || "..."} → ${toDate || "..."}`,
+      14,
+      28
+    );
+  }
+
+  autoTable(doc, {
+    startY: 34,
+    head: [["Date", "Type", "Montant (Ar)", "Description"]],
+    body: transactions.map((t) => [
+      new Date(t.date).toLocaleDateString("fr-FR"),
+      t.type === "debt" ? "Dette" : "Paiement",
+      formatAr(t.amount),
+      t.description || "",
+    ]),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [30, 41, 59] },
+  });
+
+  doc.save(
+    `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.pdf`
+  );
+};
+
+
   const formatAmount = (amount) => {
     return new Intl.NumberFormat("fr-MG").format(amount || 0);
   };
@@ -304,35 +379,43 @@ const createTransactionMutation = useMutation({
         {/* Transactions History */}
         <div>
 {/* Header de la section Historique + bouton filtre */}
-{/* Header de la section Historique + bouton filtre */}
 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
   <h2 className="text-base sm:text-lg font-semibold text-slate-800">
     Historique
   </h2>
 
-  <div className="flex items-center gap-1.5 sm:gap-2 max-w-[60%] sm:max-w-none justify-end">
-    <span className="hidden sm:inline text-[11px] sm:text-xs text-slate-500 truncate">
-      {fromDate || toDate
-        ? fromDate && toDate
-          ? `Du ${fromDate} au ${toDate}`
-          : fromDate
-          ? `Depuis le ${fromDate}`
-          : `Jusqu'au ${toDate}`
-        : "Sans filtre de période"}
-    </span>
+ <div className="flex items-center gap-1.5 sm:gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={exportCSV}
+    className="h-7 px-2 text-xs"
+  >
+    <Download className="h-3.5 w-3.5 mr-1" />
+    CSV
+  </Button>
 
-    {/* Sur mobile, on ne montre pas le texte, seulement le bouton */}
-    <Button
-      variant="outline"
-      size="sm"
-      className="flex items-center gap-1 text-[11px] sm:text-xs h-7 px-2 sm:px-3"
-      onClick={() => setShowFilterDialog(true)}
-    >
-      <Calendar className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">Filtrer par période</span>
-      <span className="sm:hidden">Filtrer</span>
-    </Button>
-  </div>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={exportPDF}
+    className="h-7 px-2 text-xs"
+  >
+    <Download className="h-3.5 w-3.5 mr-1" />
+    PDF
+  </Button>
+
+  <Button
+    variant="outline"
+    size="sm"
+    className="flex items-center gap-1 text-[11px] sm:text-xs h-7 px-2 sm:px-3"
+    onClick={() => setShowFilterDialog(true)}
+  >
+    <Calendar className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline">Filtrer</span>
+  </Button>
+</div>
+
 </div>
           <div className="space-y-2 sm:space-y-3">
             <AnimatePresence>
