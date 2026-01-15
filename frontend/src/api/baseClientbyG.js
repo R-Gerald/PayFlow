@@ -140,8 +140,8 @@ export const base44 = {
       },
     },
     Stats: {
-      async get() {
-        const res = await api.get("/me/stats");
+      async get(params = {}) {
+        const res = await api.get("/me/stats", { params });
         return res.data; // { totalDue, totalPayments, clientsWithDebt, clientsTotal }
       },
     },

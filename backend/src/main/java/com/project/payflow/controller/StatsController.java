@@ -3,6 +3,7 @@ package com.project.payflow.controller;
 
 import com.project.payflow.dto.StatsDto;
 import com.project.payflow.entities.Merchant;
+import com.project.payflow.entities.TransactionType;
 import com.project.payflow.repository.CustomerRepository;
 import com.project.payflow.repository.TransactionRepository;
 import org.springframework.http.HttpStatus;
@@ -10,10 +11,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.project.payflow.entities.Transaction;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -41,34 +45,57 @@ public class StatsController {
     // src/main/java/com/project/payflow/controller/StatsController.java
 
 @GetMapping("/stats")
-public StatsDto getStats() {
+public StatsDto getStats(@RequestParam(required = false) String from,
+                         @RequestParam(required = false) String to) {
     Long merchantId = getCurrentMerchantId();
 
-    // Totaux globaux
-    java.util.List<Object[]> rows = transactionRepository.findTotalsByMerchant(merchantId);
-    Object[] totalsRow = (rows != null && !rows.isEmpty()) ? rows.get(0) : null;
+    LocalDate fromDate = (from != null && !from.isBlank()) ? LocalDate.parse(from) : null;
+    LocalDate toDate = (to != null && !to.isBlank()) ? LocalDate.parse(to) : null;
 
-    BigDecimal totalCredits = BigDecimal.ZERO;
-    BigDecimal totalPayments = BigDecimal.ZERO;
+    // 1) Récupérer les transactions de la période (réutilisons les méthodes Spring Data)
+    List<Transaction> transactions;
 
-    if (totalsRow != null) {
-        if (totalsRow.length > 0 && totalsRow[0] != null) {
-            totalCredits = (BigDecimal) totalsRow[0];
-        }
-        if (totalsRow.length > 1 && totalsRow[1] != null) {
-            totalPayments = (BigDecimal) totalsRow[1];
-        }
+    if (fromDate != null && toDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateBetween(
+                merchantId, fromDate, toDate
+        );
+    } else if (fromDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateGreaterThanEqual(
+                merchantId, fromDate
+        );
+    } else if (toDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateLessThanEqual(
+                merchantId, toDate
+        );
+    } else {
+        transactions = transactionRepository.findByMerchantId(merchantId);
     }
 
-    // Soldes par client
+    // 2) Calculer totals à partir de cette liste
+    BigDecimal totalCredits = transactions.stream()
+            .filter(t -> t.getType() == TransactionType.CREDIT)
+            .map(Transaction::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    BigDecimal totalPayments = transactions.stream()
+            .filter(t -> t.getType() == TransactionType.PAYMENT)
+            .map(Transaction::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    // 3) Soldes par client (mêmes transactions filtrées)
     Map<Long, BigDecimal> balances = new HashMap<>();
-    for (Object[] row : transactionRepository.findClientBalancesByMerchant(merchantId)) {
-        Long customerId = (Long) row[0];
-        BigDecimal balance = (BigDecimal) row[1];
-        balances.put(customerId, balance);
+    for (Transaction t : transactions) {
+        Long customerId = t.getCustomer().getId();
+        BigDecimal current = balances.getOrDefault(customerId, BigDecimal.ZERO);
+        if (t.getType() == TransactionType.CREDIT) {
+            current = current.add(t.getAmount());
+        } else if (t.getType() == TransactionType.PAYMENT) {
+            current = current.subtract(t.getAmount());
+        }
+        balances.put(customerId, current);
     }
 
-    long clientsTotal = customerRepository.countByMerchantId(merchantId);
+    long clientsTotal = customerRepository.countByMerchantId(merchantId); // total clients du merchant
     long clientsWithDebt = balances.values().stream()
             .filter(b -> b != null && b.compareTo(BigDecimal.ZERO) > 0)
             .count();
@@ -76,9 +103,6 @@ public StatsDto getStats() {
     BigDecimal totalDue = balances.values().stream()
             .filter(b -> b != null && b.compareTo(BigDecimal.ZERO) > 0)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-    System.out.println("TotalsRow = " + java.util.Arrays.toString(totalsRow));
-    System.out.println("totalCredits = " + totalCredits + ", totalPayments = " + totalPayments);
 
     return new StatsDto(totalDue, totalPayments, clientsWithDebt, clientsTotal);
 }
