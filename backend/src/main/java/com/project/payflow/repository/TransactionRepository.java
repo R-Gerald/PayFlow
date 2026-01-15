@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.time.LocalDate;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
@@ -43,4 +44,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     where t.merchant.id = :merchantId
     """)
 java.util.List<Object[]> findTotalsByMerchant(Long merchantId);
+
+List<Transaction> findByMerchantIdAndTransactionDateGreaterThanEqual(Long merchantId, LocalDate from);
+
+// Période de fin seulement
+List<Transaction> findByMerchantIdAndTransactionDateLessThanEqual(Long merchantId, LocalDate to);
+
+// Période complète
+List<Transaction> findByMerchantIdAndTransactionDateBetween(Long merchantId, LocalDate from, LocalDate to);
 }

@@ -15,6 +15,7 @@ import {
   Loader2,
   Trash2,
   Edit,
+  Calendar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -40,6 +41,7 @@ export default function ClientDetail() {
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
 
   // États pour l'édition
   const [editName, setEditName] = useState("");
@@ -49,6 +51,9 @@ export default function ClientDetail() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const{toast}=useToast();
+
+  const [fromDate, setFromDate] = useState("");
+const [toDate, setToDate] = useState("");
 
   // Charger le client courant
   const {
@@ -77,9 +82,12 @@ export default function ClientDetail() {
     data: transactions = [],
     isLoading: loadingTransactions,
   } = useQuery({
-    queryKey: ["transactions", clientId],
+    queryKey: ["transactions", clientId,fromDate,toDate],
     queryFn: async () => {
-      const allTransactions = await base44.entities.Transaction.list();
+      const allTransactions = await base44.entities.Transaction.list({
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      });
       return allTransactions
         .filter((t) => t.client_id === clientId)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -295,10 +303,37 @@ const createTransactionMutation = useMutation({
 
         {/* Transactions History */}
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4">
-            Historique
-          </h2>
+{/* Header de la section Historique + bouton filtre */}
+{/* Header de la section Historique + bouton filtre */}
+<div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+  <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+    Historique
+  </h2>
 
+  <div className="flex items-center gap-1.5 sm:gap-2 max-w-[60%] sm:max-w-none justify-end">
+    <span className="hidden sm:inline text-[11px] sm:text-xs text-slate-500 truncate">
+      {fromDate || toDate
+        ? fromDate && toDate
+          ? `Du ${fromDate} au ${toDate}`
+          : fromDate
+          ? `Depuis le ${fromDate}`
+          : `Jusqu'au ${toDate}`
+        : "Sans filtre de période"}
+    </span>
+
+    {/* Sur mobile, on ne montre pas le texte, seulement le bouton */}
+    <Button
+      variant="outline"
+      size="sm"
+      className="flex items-center gap-1 text-[11px] sm:text-xs h-7 px-2 sm:px-3"
+      onClick={() => setShowFilterDialog(true)}
+    >
+      <Calendar className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">Filtrer par période</span>
+      <span className="sm:hidden">Filtrer</span>
+    </Button>
+  </div>
+</div>
           <div className="space-y-2 sm:space-y-3">
             <AnimatePresence>
               {loadingTransactions ? (
@@ -345,6 +380,68 @@ const createTransactionMutation = useMutation({
           clientName={client.name}
           maxAmount={client.total_due}
         />
+
+        {/* Dialog filtre période */}
+<AlertDialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Filtrer par période</AlertDialogTitle>
+      <AlertDialogDescription>
+        Sélectionnez une période pour afficher uniquement les transactions
+        correspondantes. Vous pouvez laisser l’une des deux dates vide.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <div className="space-y-3 py-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="flex-1">
+          <label className="block text-xs text-slate-600 mb-1">
+            Du
+          </label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs text-slate-600 mb-1">
+            Au
+          </label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+          />
+        </div>
+      </div>
+      {(fromDate || toDate) && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1 text-xs"
+          onClick={() => {
+            setFromDate("");
+            setToDate("");
+          }}
+        >
+          Réinitialiser la période
+        </Button>
+      )}
+    </div>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Annuler</AlertDialogCancel>
+      <AlertDialogAction
+        onClick={() => {
+          setShowFilterDialog(false);
+        }}
+      >
+        Appliquer le filtre
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
 
         {/* Dialog édition client */}
         <AlertDialog open={showEditDialog} onOpenChange={setShowEditDialog}>

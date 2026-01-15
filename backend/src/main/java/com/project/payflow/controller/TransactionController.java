@@ -1,11 +1,16 @@
+// src/main/java/com/project/payflow/controller/TransactionController.java
 package com.project.payflow.controller;
 
-import com.project.payflow.entities.*;
+import com.project.payflow.dto.CreateTransactionRequest;
+import com.project.payflow.dto.TransactionDto;
+import com.project.payflow.entities.Customer;
+import com.project.payflow.entities.Merchant;
+import com.project.payflow.entities.Transaction;
 import com.project.payflow.repository.CustomerRepository;
 import com.project.payflow.repository.MerchantRepository;
 import com.project.payflow.repository.TransactionRepository;
-import com.project.payflow.dto.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,27 +34,60 @@ public class TransactionController {
         this.customerRepository = customerRepository;
     }
 
-    //Liste des transactions d'un merchant (tous clients)
-    @GetMapping
-    public List<TransactionDto> list() {
-          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
-            .getAuthentication()
-            .getPrincipal();
-    Long merchantId = authMerchant.getId();
-        return transactionRepository.findByMerchantId(merchantId)
-                .stream()
-                .map(TransactionDto::fromEntity)
-                .toList();
+    private Long getCurrentMerchantId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Merchant)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authenticated");
+        }
+        Merchant m = (Merchant) auth.getPrincipal();
+        return m.getId();
     }
 
-    //Créer une transaction
+    // src/main/java/com/project/payflow/controller/TransactionController.java
+
+@GetMapping
+public List<TransactionDto> list(@RequestParam(required = false) String from,
+                                 @RequestParam(required = false) String to) {
+    Long merchantId = getCurrentMerchantId();
+
+    LocalDate fromDate = (from != null && !from.isBlank()) ? LocalDate.parse(from) : null;
+    LocalDate toDate = (to != null && !to.isBlank()) ? LocalDate.parse(to) : null;
+
+    List<Transaction> transactions;
+
+    if (fromDate != null && toDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateBetween(
+                merchantId, fromDate, toDate
+        );
+    } else if (fromDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateGreaterThanEqual(
+                merchantId, fromDate
+        );
+    } else if (toDate != null) {
+        transactions = transactionRepository.findByMerchantIdAndTransactionDateLessThanEqual(
+                merchantId, toDate
+        );
+    } else {
+        transactions = transactionRepository.findByMerchantId(merchantId);
+    }
+
+    // Optionnel: trier ici si nécessaire
+    transactions.sort((a, b) -> {
+        int cmp = b.getTransactionDate().compareTo(a.getTransactionDate());
+        if (cmp != 0) return cmp;
+        return Long.compare(b.getId(), a.getId());
+    });
+
+    return transactions.stream()
+            .map(TransactionDto::fromEntity)
+            .toList();
+}
+
+    // Créer une transaction
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionDto create(@RequestBody CreateTransactionRequest request) {
-          Merchant authMerchant = (Merchant) SecurityContextHolder.getContext()
-            .getAuthentication()
-            .getPrincipal();
-    Long merchantId = authMerchant.getId();
+        Long merchantId = getCurrentMerchantId();
 
         if (request.getCustomerId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");
@@ -85,7 +123,6 @@ public class TransactionController {
                 .setPaymentMethod(request.getPaymentMethod());
 
         Transaction saved = transactionRepository.save(tx);
-
         return TransactionDto.fromEntity(saved);
     }
 }

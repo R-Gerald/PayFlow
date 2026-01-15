@@ -94,8 +94,10 @@ export const base44 = {
 
     Transaction: {
       // Récupérer toutes les transactions du merchant connecté
-      async list() {
-        const res = await api.get(`/me/transactions`);
+      async list(params = {}) {
+        const res = await api.get("/me/transactions", {
+          params,
+        });
         const mapped = res.data.map((t) => ({
           id: t.id,
           client_id: t.customerId,
