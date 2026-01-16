@@ -113,6 +113,8 @@ const createTransactionMutation = useMutation({
     queryClient.invalidateQueries({ queryKey: ["client", clientId] });
     queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
     queryClient.invalidateQueries({ queryKey: ["clients"] });
+    queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
+    queryClient.invalidateQueries({ queryKey: ["stats"] });
 
     const isPayment = variables.type === "payment";
     const amount = variables.amount || 0;
@@ -154,6 +156,9 @@ const createTransactionMutation = useMutation({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+
       setShowEditDialog(false);
       toast({
         title: "Client mis à jour",
@@ -176,6 +181,9 @@ const createTransactionMutation = useMutation({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+
       navigate(createPageUrl("Home"), { replace: true });
       toast({
         title: "Client supprimé",

@@ -49,13 +49,15 @@ export default function Clients() {
     },
   });
 
-  // Check for overdue debts per client
-  const clientOverdueStatus = {};
-  transactions.forEach((t) => {
-    if (t.type === "debt" && t.due_date && new Date(t.due_date) < new Date()) {
-      clientOverdueStatus[t.client_id] = true;
-    }
-  });
+ const { data: overdueClientIds = [] } = useQuery({
+   queryKey: ["customers-overdue"],
+   queryFn: () => base44.entities.Client.listOverdue(),
+ });
+
+  const clientOverdueStatus = Object.fromEntries(
+  overdueClientIds.map((id) => [id, true])
+);
+
 
   // Filter and sort clients
   const filteredClients = clients

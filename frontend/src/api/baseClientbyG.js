@@ -89,6 +89,12 @@ export const base44 = {
       async delete(id) {
         await api.delete(`/me/customers/${id}`);
       },
+       // Liste des clients en retard (IDs uniquement)
+      async listOverdue() {
+        const res = await api.get("/me/customers/overdue");
+        // Backend retourne: List<Long>
+        return res.data; // ex: [1, 4, 7]
+      },
 
     },
 

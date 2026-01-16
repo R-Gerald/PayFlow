@@ -52,4 +52,31 @@ List<Transaction> findByMerchantIdAndTransactionDateLessThanEqual(Long merchantI
 
 // Période complète
 List<Transaction> findByMerchantIdAndTransactionDateBetween(Long merchantId, LocalDate from, LocalDate to);
+@Query("""
+select distinct c.id
+from Customer c
+join Transaction t on t.customer = c
+where c.merchant.id = :merchantId
+  and t.type = com.project.payflow.entities.TransactionType.CREDIT
+  and t.dueDate is not null
+  and t.dueDate < CURRENT_DATE
+  and (
+    select coalesce(sum(tc.amount), 0)
+    from Transaction tc
+    where tc.customer = c
+      and tc.merchant.id = :merchantId
+      and tc.type = com.project.payflow.entities.TransactionType.CREDIT
+  )
+  -
+  (
+    select coalesce(sum(tp.amount), 0)
+    from Transaction tp
+    where tp.customer = c
+      and tp.merchant.id = :merchantId
+      and tp.type = com.project.payflow.entities.TransactionType.PAYMENT
+  ) > 0
+""")
+List<Long> findOverdueCustomerIds(Long merchantId);
+
+
 }

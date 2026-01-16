@@ -60,17 +60,15 @@ export default function Home() {
 const totalPayments = stats ? Number(stats.totalPayments ?? 0) : 0;
 const clientsWithDebt = stats ? stats.clientsWithDebt ?? 0 : 0;
 const clientsTotal = stats ? stats.clientsTotal ?? clients.length : clients.length;
+const { data: overdueClientIds = [] } = useQuery({
+  queryKey: ["customers-overdue"],
+  queryFn: () => base44.entities.Client.listOverdue(),
+});
 
-  const clientOverdueStatus = {};
-  transactions.forEach((t) => {
-    if (
-      t.type === "debt" &&
-      t.due_date &&
-      new Date(t.due_date) < new Date()
-    ) {
-      clientOverdueStatus[t.client_id] = true;
-    }
-  });
+const clientOverdueStatus = Object.fromEntries(
+  overdueClientIds.map((id) => [id, true])
+);
+
 
   const filteredClients = clients
     .filter((c) =>

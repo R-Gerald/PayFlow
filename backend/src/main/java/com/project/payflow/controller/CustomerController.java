@@ -151,4 +151,15 @@ public class CustomerController {
         // les transactions liées seront supprimées automatiquement.
         customerRepository.delete(customer);
     }
+
+    @GetMapping("/overdue")
+    public List<Long> getOverdueCustomers() {
+        Long merchantId = getCurrentMerchantId();
+   
+        List<Long> overdueCustomerIds =transactionRepository.findOverdueCustomerIds(merchantId);
+
+        return overdueCustomerIds;
+        
+    }
+
 }
