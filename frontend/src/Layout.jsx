@@ -6,6 +6,7 @@ import { Home, Users, BarChart3, LogOut, User, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { clearToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/reminders/NotificationBell";
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -54,6 +55,9 @@ export default function Layout({ children }) {
             </span>
           </div>
 
+           {/* Cloche de notifications */}
+          <NotificationBell />
+
           <Button
             variant="outline"
             size="sm"
@@ -77,6 +81,7 @@ export default function Layout({ children }) {
 
         {/* Version mobile (< sm): très compact, juste icône user + bouton logout */}
         <div className="flex sm:hidden items-center gap-2 bg-white/80 backdrop-blur rounded-full px-2 py-1 shadow-sm">
+        <NotificationBell />
           <Button
             variant="ghost"
             size="icon"

@@ -151,5 +151,31 @@ export const base44 = {
         return res.data; // { totalDue, totalPayments, clientsWithDebt, clientsTotal }
       },
     },
+     Notifications: {
+      // Liste des notifications
+      async list() {
+        const res = await api.get("/me/notifications");
+        // Backend: List<NotificationDto>
+        return res.data.map((n) => ({
+          id: n.id,
+          customer_id: n.customerId,
+          title: n.title,
+          message: n.message,
+          read: n.read,
+          created_at: n.createdAt,
+        }));
+      },
+
+      // Nombre non lues
+      async unreadCount() {
+        const res = await api.get("/me/notifications/unread-count");
+        // { unreadCount: number }
+        return res.data.unreadCount ?? 0;
+      },
+
+      async markAsRead(id) {
+        await api.post(`/me/notifications/${id}/read`);
+      },
+    },
   },
 };

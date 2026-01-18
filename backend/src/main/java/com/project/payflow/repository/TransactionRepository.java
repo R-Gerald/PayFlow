@@ -78,5 +78,14 @@ where c.merchant.id = :merchantId
 """)
 List<Long> findOverdueCustomerIds(Long merchantId);
 
+@Query("""
+    select t
+    from Transaction t
+    where t.merchant.id = :merchantId
+      and t.type = com.project.payflow.entities.TransactionType.CREDIT
+      and t.dueDate = :dueDate
+""")
+java.util.List<Transaction> findCreditsByMerchantAndDueDate(Long merchantId, java.time.LocalDate dueDate);
+
 
 }
