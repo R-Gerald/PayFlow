@@ -1,6 +1,7 @@
 // src/api/base44Client.js
 import axios from "axios";
 import {getToken,clearToken} from "@/lib/auth";
+import { AlertDialogCancel } from "@radix-ui/react-alert-dialog";
 
 // Backend Spring Boot
 const api = axios.create({
@@ -128,6 +129,7 @@ export const base44 = {
           transactionDate: data.date,   // si null, le backend met LocalDate.now()
           dueDate: data.due_date,
           paymentMethod: data.payment_method,
+          allocations: data.allocations,
         };
 
         const res = await api.post(`/me/transactions`, payload);
@@ -144,6 +146,22 @@ export const base44 = {
           payment_method: t.paymentMethod,
         };
       },
+
+      async listCreditsByClient(clientId) {
+  const res = await api.get(`/me/transactions/customer/${clientId}/credits`);
+  // Backend: CreditWithRemainingDto[]
+  return res.data.map((c) => ({
+    id: c.id,
+    client_id: c.customerId,
+    amount: Number(c.amount ?? 0),               // montant initial
+    remaining_amount: Number(c.remainingAmount ?? 0), // montant restant dû
+    description: c.description,
+    date: c.transactionDate,
+    due_date: c.dueDate,
+  }));
+},
+
+
     },
     Stats: {
       async get(params = {}) {

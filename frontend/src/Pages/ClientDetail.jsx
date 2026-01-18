@@ -108,13 +108,13 @@ const createTransactionMutation = useMutation({
       client_id: clientId,
     });
   },
-  // variables = data passé à mutate/mutateAsync
   onSuccess: (_data, variables) => {
     queryClient.invalidateQueries({ queryKey: ["client", clientId] });
     queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
     queryClient.invalidateQueries({ queryKey: ["clients"] });
     queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
     queryClient.invalidateQueries({ queryKey: ["stats"] });
+    queryClient.invalidateQueries({ queryKey: ["client-credits", clientId] });
 
     const isPayment = variables.type === "payment";
     const amount = variables.amount || 0;
@@ -122,17 +122,16 @@ const createTransactionMutation = useMutation({
     if (isPayment) {
       toast({
         title: "Paiement enregistré",
-        description: `Un paiement de ${new Intl.NumberFormat("fr-MG").format(
-          amount
-        )} Ar a été enregistré pour ${client.name}.`,
+        description: `Un paiement de ${new Intl.NumberFormat(
+          "fr-MG"
+        ).format(amount)} Ar a été enregistré pour ${client.name}.`,
       });
     } else {
-      // type === "debt"
       toast({
         title: "Dette ajoutée",
-        description: `Une dette de ${new Intl.NumberFormat("fr-MG").format(
-          amount
-        )} Ar a été ajoutée pour ${client.name}.`,
+        description: `Une dette de ${new Intl.NumberFormat(
+          "fr-MG"
+        ).format(amount)} Ar a été ajoutée pour ${client.name}.`,
       });
     }
   },
@@ -470,6 +469,7 @@ const exportPDF = () => {
           onSubmit={(data) => createTransactionMutation.mutateAsync(data)}
           clientName={client.name}
           maxAmount={client.total_due}
+          clientId={clientId} 
         />
 
         {/* Dialog filtre période */}

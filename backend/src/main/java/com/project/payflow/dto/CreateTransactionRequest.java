@@ -4,6 +4,7 @@ import com.project.payflow.entities.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public class CreateTransactionRequest {
 
@@ -14,6 +15,7 @@ public class CreateTransactionRequest {
     private LocalDate transactionDate;
     private LocalDate dueDate;
     private String paymentMethod;
+     private List<PaymentAllocationRequest> allocations;
 
     public Long getCustomerId() {
         return customerId;
@@ -75,6 +77,14 @@ public class CreateTransactionRequest {
 
     public CreateTransactionRequest setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+        return this;
+    }
+       public List<PaymentAllocationRequest> getAllocations() {
+        return allocations;
+    }
+
+    public CreateTransactionRequest setAllocations(List<PaymentAllocationRequest> allocations) {
+        this.allocations = allocations;
         return this;
     }
 }

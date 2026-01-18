@@ -87,5 +87,16 @@ List<Long> findOverdueCustomerIds(Long merchantId);
 """)
 java.util.List<Transaction> findCreditsByMerchantAndDueDate(Long merchantId, java.time.LocalDate dueDate);
 
+@Query("""
+    select t
+    from Transaction t
+    where t.merchant.id = :merchantId
+      and t.customer.id = :customerId
+      and t.type = com.project.payflow.entities.TransactionType.CREDIT
+      and t.amount > 0
+    order by t.dueDate nulls last, t.transactionDate, t.id
+""")
+List<Transaction> findCreditsByMerchantAndCustomer(Long merchantId, Long customerId);
+
 
 }
