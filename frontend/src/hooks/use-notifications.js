@@ -27,4 +27,27 @@ export function useMarkNotificationAsRead() {
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
+
+  
+}
+
+
+export function useMarkAllNotificationsAsRead() {
+  const queryClient = useQueryClient();
+  const { data: notifications = [] } = useNotifications();
+
+  const unread = notifications.filter((n) => !n.read);
+
+  return useMutation({
+    mutationFn: async () => {
+      // Appel en série (simple) ou en parallèle (Promise.all)
+      await Promise.all(
+        unread.map((n) => base44.entities.Notifications.markAsRead(n.id))
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
 }

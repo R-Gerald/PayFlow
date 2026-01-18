@@ -2,6 +2,7 @@
 import React from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import {
   useNotifications,
   useUnreadNotificationsCount,
   useMarkNotificationAsRead,
+  useMarkAllNotificationsAsRead,
 } from "@/hooks/use-notifications";
 
 function formatDate(dateStr) {
@@ -29,11 +31,25 @@ function formatDate(dateStr) {
 }
 
 export default function NotificationBell() {
+  const navigate = useNavigate();
   const { data: notifications = [] } = useNotifications();
   const { data: unreadCount = 0 } = useUnreadNotificationsCount();
   const markAsReadMutation = useMarkNotificationAsRead();
+  const markAllMutation = useMarkAllNotificationsAsRead();
 
   const hasNotifications = notifications.length > 0;
+
+  const handleClickNotification = (n) => {
+    // Marquer comme lu si nécessaire
+    if (!n.read && !markAsReadMutation.isPending) {
+      markAsReadMutation.mutate(n.id);
+    }
+
+    // Rediriger vers la fiche client si possible
+    if (n.customer_id) {
+      navigate(`/clients/${n.customer_id}`);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -56,7 +72,23 @@ export default function NotificationBell() {
         align="end"
         className="w-80 max-h-96 overflow-y-auto"
       >
-        <DropdownMenuLabel>Rappels de paiement</DropdownMenuLabel>
+        <div className="flex items-center justify-between px-2 pt-2 pb-1">
+          <DropdownMenuLabel>Rappels de paiement</DropdownMenuLabel>
+
+          {unreadCount > 0 && (
+            <button
+              className="text-[11px] text-slate-500 hover:text-slate-700 underline"
+              onClick={(e) => {
+                e.stopPropagation(); // éviter la fermeture auto
+                if (!markAllMutation.isPending) {
+                  markAllMutation.mutate();
+                }
+              }}
+            >
+              Tout marquer comme lu
+            </button>
+          )}
+        </div>
         <DropdownMenuSeparator />
 
         {!hasNotifications && (
@@ -65,36 +97,47 @@ export default function NotificationBell() {
           </div>
         )}
 
-        {notifications.map((n) => (
-          <DropdownMenuItem
-            key={n.id}
-            className={`flex flex-col items-start gap-0.5 whitespace-normal ${
-              !n.read ? "bg-slate-50" : ""
-            }`}
-            onClick={() => {
-              if (!n.read && !markAsReadMutation.isPending) {
-                markAsReadMutation.mutate(n.id);
-              }
-            }}
-          >
-            <div className="flex w-full justify-between items-center gap-2">
-              <span className="text-xs font-semibold text-slate-800">
-                {n.title}
-              </span>
-              {!n.read && (
-                <span className="text-[10px] px-1.5 py-[1px] rounded-full bg-amber-100 text-amber-700">
-                  Nouveau
+        {notifications.map((n) => {
+          // Signal visuel clair : badge "En retard" si le titre contient "retard"
+          const isOverdue = n.title
+            ? n.title.toLowerCase().includes("retard")
+            : false;
+
+          return (
+            <DropdownMenuItem
+              key={n.id}
+              className={`flex flex-col items-start gap-0.5 whitespace-normal cursor-pointer ${
+                !n.read ? "bg-slate-50" : ""
+              }`}
+              onClick={() => handleClickNotification(n)}
+            >
+              <div className="flex w-full justify-between items-center gap-2">
+                <span className="text-xs font-semibold text-slate-800">
+                  {n.title}
                 </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-600 break-words">
-              {n.message}
-            </p>
-            <span className="text-[10px] text-slate-400 mt-0.5">
-              {formatDate(n.created_at)}
-            </span>
-          </DropdownMenuItem>
-        ))}
+                <div className="flex items-center gap-1">
+                  {isOverdue && (
+                    <span className="text-[10px] px-1.5 py-[1px] rounded-full bg-red-100 text-red-700">
+                      En retard
+                    </span>
+                  )}
+                  {!n.read && (
+                    <span className="text-[10px] px-1.5 py-[1px] rounded-full bg-amber-100 text-amber-700">
+                      Nouveau
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 break-words">
+                {n.message}
+              </p>
+              <span className="text-[10px] text-slate-400 mt-0.5">
+                {formatDate(n.created_at)}
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
