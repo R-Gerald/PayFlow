@@ -195,5 +195,15 @@ export const base44 = {
         await api.post(`/me/notifications/${id}/read`);
       },
     },
+    ReminderSettings: {
+        async get() {
+          const res = await api.get("/me/reminder-settings");
+          return res.data;
+        },
+        async update(data) {
+          const res = await api.put("/me/reminder-settings", data);
+          return res.data;
+        },
+      },
   },
 };

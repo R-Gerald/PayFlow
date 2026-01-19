@@ -14,34 +14,53 @@ import java.util.List;
 @Service
 public class PaymentReminderService {
 
-    private final TransactionRepository transactionRepository;
+   private final TransactionRepository transactionRepository;
     private final NotificationRepository notificationRepository;
     private final PaymentReminderRepository paymentReminderRepository;
     private final BalanceService balanceService;
+    private final ReminderSettingsService reminderSettingsService;
 
     public PaymentReminderService(TransactionRepository transactionRepository,
                                   NotificationRepository notificationRepository,
                                   PaymentReminderRepository paymentReminderRepository,
-                                  BalanceService balanceService) {
+                                  BalanceService balanceService,
+                                  ReminderSettingsService reminderSettingsService) {
         this.transactionRepository = transactionRepository;
         this.notificationRepository = notificationRepository;
         this.paymentReminderRepository = paymentReminderRepository;
         this.balanceService = balanceService;
+        this.reminderSettingsService = reminderSettingsService;
     }
-
-    @Transactional
+  @Transactional
     public void generateDailyRemindersForMerchant(Merchant merchant) {
         Long merchantId = merchant.getId();
         LocalDate today = LocalDate.now();
 
-        // J : échéance aujourd’hui → DUE_SOON
-        handleLevel(merchant, today, 1, "DUE_SOON");
+        // Lire (ou créer) les réglages du merchant
+        var settings = reminderSettingsService.getOrCreateDefault(merchant);
+        if (!settings.isEnabled()) {
+            return; // rappels désactivés pour ce merchant
+        }
 
-        // J+3 : en retard de 3 jours → OVERDUE
-        handleLevel(merchant, today.minusDays(3), 2, "OVERDUE");
+        // 1) DUE_SOON : J - dueSoonDaysBefore
+        int dueSoonBefore = settings.getDueSoonDaysBefore() != null
+                ? settings.getDueSoonDaysBefore()
+                : 0;
+        LocalDate dueSoonTarget = today.plusDays(dueSoonBefore * 1L * -1); // J - N
+        handleLevel(merchant, dueSoonTarget, 1, "DUE_SOON");
 
-        // J+7 : en retard de 7 jours → OVERDUE
-        handleLevel(merchant, today.minusDays(7), 3, "OVERDUE");
+        // 2) OVERDUE niveaux
+        Integer od1 = settings.getOverdueDays1();
+        if (od1 != null && od1 > 0) {
+            LocalDate target1 = today.minusDays(od1.longValue());
+            handleLevel(merchant, target1, 2, "OVERDUE");
+        }
+
+        Integer od2 = settings.getOverdueDays2();
+        if (od2 != null && od2 > 0) {
+            LocalDate target2 = today.minusDays(od2.longValue());
+            handleLevel(merchant, target2, 3, "OVERDUE");
+        }
     }
 
     private void handleLevel(Merchant merchant,
