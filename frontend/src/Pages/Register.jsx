@@ -19,7 +19,7 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const{toast}=useState();
+  const{toast}=useToast();
 
   // Si déjà connecté, pas besoin de s'inscrire
   if (isAuthenticated()) {

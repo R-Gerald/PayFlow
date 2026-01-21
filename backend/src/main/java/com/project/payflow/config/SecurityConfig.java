@@ -24,6 +24,7 @@ public class SecurityConfig {
             .cors(cors -> {}) // active CorsConfig
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                 .requestMatchers("/error").permitAll()
                 // Endpoints publics (inscription + login)
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
