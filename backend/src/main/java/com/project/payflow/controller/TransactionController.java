@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.project.payflow.dto.CreditWithRemainingDto;
 import com.project.payflow.service.CreditService;
+import com.project.payflow.dto.CreditPaymentHistoryDto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -220,6 +221,36 @@ public List<CreditWithRemainingDto> listCustomerCredits(@PathVariable Long custo
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Merchant not found"));
 
     return creditService.getCreditsWithRemaining(merchant, customer);
+}
+
+@GetMapping("/credits/{creditId}/payments")
+public List<CreditPaymentHistoryDto> getCreditPaymentHistory(@PathVariable Long creditId) {
+    Long merchantId = getCurrentMerchantId();
+
+    Transaction credit = transactionRepository.findById(creditId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Credit not found"));
+
+    if (credit.getType() != TransactionType.CREDIT) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transaction is not a CREDIT");
+    }
+
+    if (!credit.getMerchant().getId().equals(merchantId)) {
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+    }
+
+    List<PaymentAllocation> allocations = paymentAllocationRepository.findByCredit(credit);
+
+    return allocations.stream()
+            .map(pa -> new CreditPaymentHistoryDto(
+                    pa.getPayment().getId(),
+                    pa.getAllocatedAmount(),
+                    pa.getPayment().getTransactionDate(),
+                    pa.getPayment().getDescription(),
+                    pa.getPayment().getPaymentMethod(),
+                    pa.getPayment().getCreatedAt()
+            ))
+            .sorted((a, b) -> b.getPaymentDate().compareTo(a.getPaymentDate())) // plus récents en premier
+            .toList();
 }
 
 }

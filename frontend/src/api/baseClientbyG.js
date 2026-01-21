@@ -161,6 +161,19 @@ export const base44 = {
   }));
 },
 
+async getCreditPaymentHistory(creditId) {
+        const res = await api.get(`/me/transactions/credits/${creditId}/payments`);
+        // Backend: CreditPaymentHistoryDto[]
+        return res.data.map((p) => ({
+          payment_id: p.paymentId,
+          amount: Number(p.amount ?? 0),
+          date: p.paymentDate,          // LocalDate string
+          description: p.description,
+          payment_method: p.paymentMethod,
+          created_at: p.createdAt,
+        }));
+      },
+
 
     },
     Stats: {

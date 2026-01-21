@@ -48,6 +48,10 @@ export default function ClientDetail() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
 
+  // Détails d'un crédit
+  const [selectedCreditId, setSelectedCreditId] = useState(null);
+  const [showCreditDetails, setShowCreditDetails] = useState(false);
+
   // États pour l'édition
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -55,10 +59,10 @@ export default function ClientDetail() {
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const{toast}=useToast();
+  const { toast } = useToast();
 
   const [fromDate, setFromDate] = useState("");
-const [toDate, setToDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   // Charger le client courant
   const {
@@ -87,7 +91,7 @@ const [toDate, setToDate] = useState("");
     data: transactions = [],
     isLoading: loadingTransactions,
   } = useQuery({
-    queryKey: ["transactions", clientId,fromDate,toDate],
+    queryKey: ["transactions", clientId, fromDate, toDate],
     queryFn: async () => {
       const allTransactions = await base44.entities.Transaction.list({
         from: fromDate || undefined,
@@ -100,49 +104,78 @@ const [toDate, setToDate] = useState("");
     enabled: clientId != null,
   });
 
- // Création d'une transaction (dette ou paiement)
-const createTransactionMutation = useMutation({
-  mutationFn: async (data) => {
-    await base44.entities.Transaction.create({
-      ...data,
-      client_id: clientId,
-    });
-  },
-  onSuccess: (_data, variables) => {
-    queryClient.invalidateQueries({ queryKey: ["client", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["clients"] });
-    queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
-    queryClient.invalidateQueries({ queryKey: ["stats"] });
-    queryClient.invalidateQueries({ queryKey: ["client-credits", clientId] });
+  // Crédits avec reste dû
+  const {
+    data: creditsWithRemaining = [],
+    isLoading: loadingCreditsRemaining,
+  } = useQuery({
+    queryKey: ["client-credits-overview", clientId],
+    queryFn: () => base44.entities.Transaction.listCreditsByClient(clientId),
+    enabled: clientId != null,
+  });
 
-    const isPayment = variables.type === "payment";
-    const amount = variables.amount || 0;
+  const openCredits = creditsWithRemaining.filter(
+    (c) => c.remaining_amount != null && c.remaining_amount > 0
+  );
 
-    if (isPayment) {
-      toast({
-        title: "Paiement enregistré",
-        description: `Un paiement de ${new Intl.NumberFormat(
-          "fr-MG"
-        ).format(amount)} Ar a été enregistré pour ${client.name}.`,
+  // Historique des paiements pour le crédit sélectionné
+  const {
+    data: creditPayments = [],
+    isLoading: loadingCreditPayments,
+  } = useQuery({
+    queryKey: ["credit-payments", selectedCreditId],
+    queryFn: () =>
+      base44.entities.Transaction.getCreditPaymentHistory(selectedCreditId),
+    enabled: selectedCreditId != null && showCreditDetails,
+  });
+
+  // Création d'une transaction (dette ou paiement)
+  const createTransactionMutation = useMutation({
+    mutationFn: async (data) => {
+      await base44.entities.Transaction.create({
+        ...data,
+        client_id: clientId,
       });
-    } else {
-      toast({
-        title: "Dette ajoutée",
-        description: `Une dette de ${new Intl.NumberFormat(
-          "fr-MG"
-        ).format(amount)} Ar a été ajoutée pour ${client.name}.`,
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["client", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-overdue"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["client-credits", clientId] });
+      queryClient.invalidateQueries({
+        queryKey: ["client-credits-overview", clientId],
       });
-    }
-  },
-  onError: () => {
-    toast({
-      title: "Erreur",
-      description: "La transaction n'a pas pu être enregistrée.",
-      variant: "destructive",
-    });
-  },
-});
+
+      const isPayment = variables.type === "payment";
+      const amount = variables.amount || 0;
+
+      if (isPayment) {
+        toast({
+          title: "Paiement enregistré",
+          description: `Un paiement de ${new Intl.NumberFormat("fr-MG").format(
+            amount
+          )} Ar a été enregistré pour ${client.name}.`,
+        });
+      } else {
+        toast({
+          title: "Dette ajoutée",
+          description: `Une dette de ${new Intl.NumberFormat("fr-MG").format(
+            amount
+          )} Ar a été ajoutée pour ${client.name}.`,
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "La transaction n'a pas pu être enregistrée.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Mise à jour du client
   const updateClientMutation = useMutation({
     mutationFn: async () => {
@@ -164,7 +197,7 @@ const createTransactionMutation = useMutation({
         description: "Les informations du client ont été modifiées.",
       });
     },
-     onError: () => {
+    onError: () => {
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le client.",
@@ -199,74 +232,74 @@ const createTransactionMutation = useMutation({
   });
 
   const exportCSV = () => {
-  if (!transactions.length) return;
+    if (!transactions.length) return;
 
-  const data = transactions.map((t) => ({
-    Date: new Date(t.date).toLocaleDateString("fr-FR"),
-    Type: t.type === "debt" ? "Dette" : "Paiement",
-    Montant: t.amount,
-    Description: t.description || "",
-  }));
+    const data = transactions.map((t) => ({
+      Date: new Date(t.date).toLocaleDateString("fr-FR"),
+      Type: t.type === "debt" ? "Dette" : "Paiement",
+      Montant: t.amount,
+      Description: t.description || "",
+    }));
 
-  const csv = Papa.unparse(data);
+    const csv = Papa.unparse(data);
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute(
-    "download",
-    `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.csv`
-  );
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-const formatAr = (value) => {
-  if (value === null || value === undefined) return "0 Ar";
-
-  return `${Number(value)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} Ar`;
-};
-
-const exportPDF = () => {
-  if (!transactions.length) return;
-
-  const doc = new jsPDF();
-
-  doc.setFontSize(14);
-  doc.text(`Historique des transactions`, 14, 15);
-  doc.setFontSize(10);
-  doc.text(`Client : ${client.name}`, 14, 22);
-
-  if (fromDate || toDate) {
-    doc.text(
-      `Période : ${fromDate || "..."} → ${toDate || "..."}`,
-      14,
-      28
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.csv`
     );
-  }
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-  autoTable(doc, {
-    startY: 34,
-    head: [["Date", "Type", "Montant (Ar)", "Description"]],
-    body: transactions.map((t) => [
-      new Date(t.date).toLocaleDateString("fr-FR"),
-      t.type === "debt" ? "Dette" : "Paiement",
-      formatAr(t.amount),
-      t.description || "",
-    ]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 41, 59] },
-  });
+  const formatAr = (value) => {
+    if (value === null || value === undefined) return "0 Ar";
 
-  doc.save(
-    `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.pdf`
-  );
-};
+    return `${Number(value)
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} Ar`;
+  };
 
+  const exportPDF = () => {
+    if (!transactions.length) return;
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(14);
+    doc.text(`Historique des transactions`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Client : ${client.name}`, 14, 22);
+
+    if (fromDate || toDate) {
+      doc.text(
+        `Période : ${fromDate || "..."} → ${toDate || "..."}`,
+        14,
+        28
+      );
+    }
+
+    autoTable(doc, {
+      startY: 34,
+      head: [["Date", "Type", "Montant (Ar)", "Description"]],
+      body: transactions.map((t) => [
+        new Date(t.date).toLocaleDateString("fr-FR"),
+        t.type === "debt" ? "Dette" : "Paiement",
+        formatAr(t.amount),
+        t.description || "",
+      ]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 41, 59] },
+    });
+
+    doc.save(
+      `transactions_${client.name}_${fromDate || "all"}_${toDate || "all"}.pdf`
+    );
+  };
 
   const formatAmount = (amount) => {
     return new Intl.NumberFormat("fr-MG").format(amount || 0);
@@ -342,6 +375,139 @@ const exportPDF = () => {
           </Card>
         </motion.div>
 
+        {/* Crédits en cours cliquables */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="p-4 sm:p-6 bg-white border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm sm:text-base font-semibold text-slate-800">
+                  Crédits en cours
+                </h2>
+              </div>
+
+              <span className="text-[11px] sm:text-xs text-slate-500">
+                {openCredits.length} crédit
+                {openCredits.length > 1 ? "s" : ""} actif
+                {openCredits.length > 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {loadingCreditsRemaining ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              </div>
+            ) : openCredits.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-xs text-slate-500">
+                  Aucun crédit en cours pour ce client.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {openCredits.map((c) => {
+                  const total = c.amount || 0;
+                  const remaining = c.remaining_amount || 0;
+                  const paid = total - remaining;
+                  const progress = total > 0 ? (paid / total) * 100 : 0;
+                  const dueSoon =
+                    c.due_date &&
+                    new Date(c.due_date) <
+                      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+                  const handleOpenCreditDetails = () => {
+                    setSelectedCreditId(c.id);
+                    setShowCreditDetails(true);
+                  };
+
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={handleOpenCreditDetails}
+                      className={`w-full text-left rounded-xl border p-3 sm:p-4 transition
+                        ${
+                          dueSoon
+                            ? "border-red-200 bg-red-50 hover:bg-red-100"
+                            : "border-slate-100 bg-slate-50 hover:bg-slate-100"
+                        }
+                      `}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                          Crédit #{c.id}
+                        </p>
+
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full font-medium
+                            ${
+                              dueSoon
+                                ? "bg-red-100 text-red-600"
+                                : "bg-amber-100 text-amber-600"
+                            }
+                          `}
+                        >
+                          {formatAr(remaining)} restant
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 mb-2">
+                        Créé le{" "}
+                        {new Date(c.date).toLocaleDateString("fr-FR")}
+                        {c.due_date && (
+                          <>
+                            {" "}
+                            • Échéance{" "}
+                            <span
+                              className={
+                                dueSoon ? "text-red-600 font-medium" : ""
+                              }
+                            >
+                              {new Date(
+                                c.due_date
+                              ).toLocaleDateString("fr-FR")}
+                            </span>
+                          </>
+                        )}
+                      </p>
+
+                      <div className="mb-2">
+                        <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                          <span>Payé : {formatAr(paid)}</span>
+                          <span>Total : {formatAr(total)}</span>
+                        </div>
+
+                        <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${
+                              dueSoon ? "bg-red-500" : "bg-emerald-500"
+                            }`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {c.description && (
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {c.description}
+                        </p>
+                      )}
+
+                      <p className="text-[11px] text-slate-500 mt-1 underline">
+                        Voir les paiements de ce crédit
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
         {/* Actions client : Modifier / Supprimer */}
         <div className="flex justify-end gap-2 mb-4 sm:mb-6">
           <Button
@@ -383,47 +549,46 @@ const exportPDF = () => {
           </Button>
         </div>
 
-        {/* Transactions History */}
+        {/* Historique des transactions */}
         <div>
-{/* Header de la section Historique + bouton filtre */}
-<div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-  <h2 className="text-base sm:text-lg font-semibold text-slate-800">
-    Historique
-  </h2>
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+              Historique
+            </h2>
 
- <div className="flex items-center gap-1.5 sm:gap-2">
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={exportCSV}
-    className="h-7 px-2 text-xs"
-  >
-    <Download className="h-3.5 w-3.5 mr-1" />
-    CSV
-  </Button>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportCSV}
+                className="h-7 px-2 text-xs"
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                CSV
+              </Button>
 
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={exportPDF}
-    className="h-7 px-2 text-xs"
-  >
-    <Download className="h-3.5 w-3.5 mr-1" />
-    PDF
-  </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportPDF}
+                className="h-7 px-2 text-xs"
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                PDF
+              </Button>
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="flex items-center gap-1 text-[11px] sm:text-xs h-7 px-2 sm:px-3"
-    onClick={() => setShowFilterDialog(true)}
-  >
-    <Calendar className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline">Filtrer</span>
-  </Button>
-</div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 text-[11px] sm:text-xs h-7 px-2 sm:px-3"
+                onClick={() => setShowFilterDialog(true)}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Filtrer</span>
+              </Button>
+            </div>
+          </div>
 
-</div>
           <div className="space-y-2 sm:space-y-3">
             <AnimatePresence>
               {loadingTransactions ? (
@@ -469,70 +634,74 @@ const exportPDF = () => {
           onSubmit={(data) => createTransactionMutation.mutateAsync(data)}
           clientName={client.name}
           maxAmount={client.total_due}
-          clientId={clientId} 
+          clientId={clientId}
         />
 
         {/* Dialog filtre période */}
-<AlertDialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Filtrer par période</AlertDialogTitle>
-      <AlertDialogDescription>
-        Sélectionnez une période pour afficher uniquement les transactions
-        correspondantes. Vous pouvez laisser l’une des deux dates vide.
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <div className="space-y-3 py-2">
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-        <div className="flex-1">
-          <label className="block text-xs text-slate-600 mb-1">
-            Du
-          </label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="block text-xs text-slate-600 mb-1">
-            Au
-          </label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-          />
-        </div>
-      </div>
-      {(fromDate || toDate) && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-1 text-xs"
-          onClick={() => {
-            setFromDate("");
-            setToDate("");
-          }}
+        <AlertDialog
+          open={showFilterDialog}
+          onOpenChange={setShowFilterDialog}
         >
-          Réinitialiser la période
-        </Button>
-      )}
-    </div>
-    <AlertDialogFooter>
-      <AlertDialogCancel>Annuler</AlertDialogCancel>
-      <AlertDialogAction
-        onClick={() => {
-          setShowFilterDialog(false);
-        }}
-      >
-        Appliquer le filtre
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Filtrer par période</AlertDialogTitle>
+              <AlertDialogDescription>
+                Sélectionnez une période pour afficher uniquement les
+                transactions correspondantes. Vous pouvez laisser l’une des
+                deux dates vide.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-slate-600 mb-1">
+                    Du
+                  </label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-slate-600 mb-1">
+                    Au
+                  </label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                  />
+                </div>
+              </div>
+              {(fromDate || toDate) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 text-xs"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                >
+                  Réinitialiser la période
+                </Button>
+              )}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setShowFilterDialog(false);
+                }}
+              >
+                Appliquer le filtre
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Dialog édition client */}
         <AlertDialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -580,9 +749,7 @@ const exportPDF = () => {
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => updateClientMutation.mutate()}
-              >
+              <AlertDialogAction onClick={() => updateClientMutation.mutate()}>
                 {updateClientMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
@@ -593,7 +760,10 @@ const exportPDF = () => {
         </AlertDialog>
 
         {/* Dialog suppression client */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
@@ -616,6 +786,107 @@ const exportPDF = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+       {/* Modal détails d'un crédit – version UX améliorée */}
+<AlertDialog
+  open={showCreditDetails}
+  onOpenChange={(open) => {
+    setShowCreditDetails(open);
+    if (!open) {
+      setSelectedCreditId(null);
+    }
+  }}
+>
+  <AlertDialogContent className="max-w-lg sm:max-w-xl">
+    {/* Header */}
+    <AlertDialogHeader>
+      <AlertDialogTitle className="flex items-center gap-2">
+        <CreditCard className="h-5 w-5 text-amber-500" />
+        Détails du crédit #{selectedCreditId}
+      </AlertDialogTitle>
+      <AlertDialogDescription className="text-xs sm:text-sm">
+        Historique des paiements appliqués spécifiquement à ce crédit.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+
+    {/* Body */}
+    <div className="mt-3 space-y-3">
+      {loadingCreditPayments ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      ) : creditPayments.length === 0 ? (
+        <div className="text-center py-6 bg-slate-50 rounded-lg border border-slate-100">
+          <p className="text-xs text-slate-500">
+            Aucun paiement ciblé n’a encore été enregistré pour ce crédit.
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Les paiements globaux non affectés à un crédit précis
+            n’apparaissent pas ici.
+          </p>
+        </div>
+      ) : (
+        <div className="max-h-72 overflow-y-auto pr-1 space-y-2">
+          {creditPayments.map((p, index) => (
+            <motion.div
+              key={p.payment_id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="relative pl-4"
+            >
+              {/* Timeline dot */}
+              <span className="absolute left-0 top-4 h-2 w-2 rounded-full bg-emerald-500" />
+
+              {/* Card */}
+              <div className="bg-white border border-slate-100 rounded-lg px-3 py-2 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                    Paiement #{p.payment_id}
+                  </p>
+                  <span className="text-xs font-semibold text-emerald-600">
+                    {formatAr(p.amount)}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {p.date && (
+                    <>
+                      {new Date(p.date).toLocaleDateString("fr-FR")}
+                    </>
+                  )}
+                  {p.payment_method && (
+                    <> • {p.payment_method}</>
+                  )}
+                </p>
+
+                {p.description && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {p.description}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Footer */}
+    <AlertDialogFooter className="mt-4">
+      <AlertDialogAction
+        onClick={() => {
+          setShowCreditDetails(false);
+          setSelectedCreditId(null);
+        }}
+        className="w-full sm:w-auto"
+      >
+        Fermer
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+
       </div>
     </div>
   );
