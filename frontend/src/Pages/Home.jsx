@@ -62,6 +62,7 @@ export default function Home() {
   const totalPayments = Number(stats?.totalPayments ?? 0);
   const clientsWithDebt = stats?.clientsWithDebt ?? 0;
   const clientsTotal = stats?.clientsTotal ?? clients.length;
+  const overdueCount = overdueClientIds.length;
 
   
 
@@ -92,6 +93,19 @@ export default function Home() {
       });
   }, [clients, searchQuery, sortBy, clientOverdueMap]);
 
+  const sortLabel =
+  sortBy === "priority"
+    ? "Priorité (retards en premier)"
+    : sortBy === "amount"
+    ? "Montant dû"
+    : "Nom";
+
+    const topPriorityClients = useMemo(() => {
+  return clients
+    .filter((c) => clientOverdueMap[c.id] && c.total_due > 0)
+    .sort((a, b) => (b.total_due || 0) - (a.total_due || 0))
+    .slice(0, 3);
+}, [clients, clientOverdueMap]);
 
 
   return (
@@ -113,26 +127,39 @@ export default function Home() {
         </motion.div>
 
         {/* FINANCIAL HEALTH */}
-        <div className="mb-6">
-          {financialHealth === "healthy" && (
-            <div className="flex items-center gap-2 text-emerald-600">
-              <CheckCircle2 className="h-5 w-5" />
-              <span>Situation saine — aucun client en retard </span>
-            </div>
-          )}
-          {financialHealth === "warning" && (
-            <div className="flex items-center gap-2 text-amber-600">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Quelques crédits à surveiller</span>
-            </div>
-          )}
-          {financialHealth === "critical" && (
-            <div className="flex items-center gap-2 text-red-600 font-medium">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Attention : plusieurs clients en retard</span>
-            </div>
-          )}
-        </div>
+       <div className="mb-6">
+  <div
+    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm border
+      ${
+        financialHealth === "healthy"
+          ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+          : financialHealth === "warning"
+          ? "bg-amber-50 border-amber-100 text-amber-700"
+          : "bg-red-50 border-red-100 text-red-700"
+      }`}
+  >
+    {financialHealth === "healthy" && <CheckCircle2 className="h-4 w-4" />}
+    {financialHealth !== "healthy" && <AlertTriangle className="h-4 w-4" />}
+
+    {financialHealth === "healthy" && (
+      <span>
+        Situation saine — aucun crédit en retard. Continuez comme ça.
+      </span>
+    )}
+    {financialHealth === "warning" && (
+      <span>
+        Quelques crédits à surveiller — {overdueCount} client
+        {overdueCount > 1 ? "s" : ""} en retard.
+      </span>
+    )}
+    {financialHealth === "critical" && (
+      <span>
+        Attention : {overdueCount} client
+        {overdueCount > 1 ? "s" : ""} en retard. Priorisez les relances.
+      </span>
+    )}
+  </div>
+</div>
 
         {/* STATS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -160,33 +187,57 @@ export default function Home() {
         </div>
 
         {/* SEARCH & SORT */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Rechercher un client..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white"
-            />
-          </div>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+  <div className="relative flex-1">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <Input
+      placeholder="Rechercher un client..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="pl-10 bg-white"
+    />
+  </div>
 
-          <Button
-            variant="outline"
-            onClick={() =>
-              setSortBy(
-                sortBy === "priority"
-                  ? "amount"
-                  : sortBy === "amount"
-                  ? "name"
-                  : "priority"
-              )
-            }
-          >
-            <ArrowUpDown className="h-4 w-4 mr-2" />
-            Trier
-          </Button>
+  <Button
+    variant="outline"
+    onClick={() =>
+      setSortBy(
+        sortBy === "priority"
+          ? "amount"
+          : sortBy === "amount"
+          ? "name"
+          : "priority"
+      )
+    }
+    className="whitespace-nowrap"
+  >
+    <ArrowUpDown className="h-4 w-4 mr-2" />
+    {sortLabel}
+  </Button>
+</div>
+{/* TOP PRIORITÉ */}
+{topPriorityClients.length > 0 && (
+  <div className="mb-4">
+    <h2 className="text-xs sm:text-sm font-semibold text-slate-700 mb-2">
+      À relancer en priorité
+    </h2>
+    <div className="space-y-1.5">
+      {topPriorityClients.map((c) => (
+        <div
+          key={c.id}
+          className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs sm:text-sm"
+        >
+          <span className="font-medium text-slate-800 truncate">
+            {c.name}
+          </span>
+          <span className="text-red-600 font-semibold">
+            {formatAmount(c.total_due)} Ar
+          </span>
         </div>
+      ))}
+    </div>
+  </div>
+)}
 
         {/* CLIENT LIST */}
         <AnimatePresence>
@@ -206,6 +257,12 @@ export default function Home() {
                   ? "Aucun client trouvé"
                   : "Aucun client avec crédit actif"}
               </p>
+              {!searchQuery && (
+              <p className="text-xs text-slate-400 mb-4 max-w-sm mx-auto">
+                Ajoutez un client puis enregistrez une dette pour suivre facilement les
+                remboursements.
+             </p>
+              )}
               <Button onClick={() => setShowAddClient(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Ajouter un client
