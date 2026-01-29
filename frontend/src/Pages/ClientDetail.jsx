@@ -466,28 +466,7 @@ export default function ClientDetail() {
                 </div>
               </div>
 
-              {/* Actions rapides */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEditDialog(true)}
-                  className="gap-2"
-                >
-                  <Edit className="h-4 w-4" />
-                  <span className="hidden sm:inline">Modifier</span>
-                </Button>
-
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setShowAddDebt(true)}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Nouvelle dette</span>
-                </Button>
-              </div>
+             
             </div>
           </div>
         </div>
@@ -840,6 +819,14 @@ export default function ClientDetail() {
                   </Button>
 
                   <div className="h-px bg-slate-200 my-2" />
+                   <Button
+                  variant="ghost"
+                  onClick={() => setShowEditDialog(true)}
+                  className="w-full justify-start h-10 gap-3"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span className="hidden sm:inline">Modifier</span>
+                </Button>
 
                   <Button
                     variant="ghost"
