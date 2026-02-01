@@ -129,6 +129,8 @@ export const base44 = {
           transactionDate: data.date,   // si null, le backend met LocalDate.now()
           dueDate: data.due_date,
           paymentMethod: data.payment_method,
+          interestRate: data.interest_rate,
+          latePenalty: data.late_penalty,
           allocations: data.allocations,
         };
 

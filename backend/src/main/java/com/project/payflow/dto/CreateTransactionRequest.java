@@ -15,7 +15,10 @@ public class CreateTransactionRequest {
     private LocalDate transactionDate;
     private LocalDate dueDate;
     private String paymentMethod;
-     private List<PaymentAllocationRequest> allocations;
+    private List<PaymentAllocationRequest> allocations;
+    private BigDecimal interestRate;
+    private BigDecimal latePenalty;
+
 
     public Long getCustomerId() {
         return customerId;
@@ -85,6 +88,20 @@ public class CreateTransactionRequest {
 
     public CreateTransactionRequest setAllocations(List<PaymentAllocationRequest> allocations) {
         this.allocations = allocations;
+        return this;
+    }
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+    public CreateTransactionRequest setInterestRate(BigDecimal interestRate) {
+        this.interestRate = interestRate;
+        return this;
+    }
+    public BigDecimal getLatePenalty() {
+        return latePenalty;
+    }
+    public CreateTransactionRequest setLatePenalty(BigDecimal latePenalty) {
+        this.latePenalty = latePenalty;
         return this;
     }
 }

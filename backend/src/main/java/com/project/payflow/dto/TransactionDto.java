@@ -16,6 +16,8 @@ public class TransactionDto {
     private LocalDate transactionDate;
     private LocalDate dueDate;
     private String paymentMethod;
+    private BigDecimal interestRate;
+    private BigDecimal latePenalty;
 
     public TransactionDto() {}
 
@@ -26,7 +28,9 @@ public class TransactionDto {
                           String description,
                           LocalDate transactionDate,
                           LocalDate dueDate,
-                          String paymentMethod) {
+                          String paymentMethod,
+                        BigDecimal interestRate,
+                        BigDecimal latePenalty) {
         this.id = id;
         this.customerId = customerId;
         this.type = type;
@@ -35,6 +39,8 @@ public class TransactionDto {
         this.transactionDate = transactionDate;
         this.dueDate = dueDate;
         this.paymentMethod = paymentMethod;
+        this.interestRate = interestRate;
+        this.latePenalty = latePenalty;
     }
 
     public static TransactionDto fromEntity(Transaction t) {
@@ -46,11 +52,20 @@ public class TransactionDto {
                 t.getDescription(),
                 t.getTransactionDate(),
                 t.getDueDate(),
-                t.getPaymentMethod()
+                t.getPaymentMethod(),
+                t.getInterestRate(),
+                t.getLatePenalty()
         );
     }
 
     // getters seulement (facultatif de mettre des setters)
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+    public BigDecimal getLatePenalty() {
+        return latePenalty;
+    }
 
     public Long getId() {
         return id;

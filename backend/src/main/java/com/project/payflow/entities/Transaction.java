@@ -49,6 +49,12 @@ public class Transaction {
     @Column(name = "updated_at",insertable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "interest_rate", precision = 5, scale = 2)
+private BigDecimal interestRate;
+
+@Column(name = "late_penalty", precision = 18, scale = 2)
+private BigDecimal latePenalty;
+
     // Getters & setters
 
     public Long getId() {
@@ -133,5 +139,23 @@ public class Transaction {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public BigDecimal getInterestRate() {
+    return interestRate;
+    }
+
+    public Transaction setInterestRate(BigDecimal interestRate) {
+    this.interestRate = interestRate;
+    return this;
+    }
+
+    public BigDecimal getLatePenalty() {
+    return latePenalty;
+    }
+
+    public Transaction setLatePenalty(BigDecimal latePenalty) {
+    this.latePenalty = latePenalty;
+    return this;
     }
 }

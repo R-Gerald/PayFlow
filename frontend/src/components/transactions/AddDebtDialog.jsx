@@ -35,7 +35,9 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
     amount: '',
     description: '',
     date: new Date(),
-    due_date: null
+    due_date: null,
+    interest_rate: '',
+    late_penalty: ''
   });
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -50,10 +52,12 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
       amount: parseFloat(formData.amount),
       description: formData.description,
       date: format(formData.date, 'yyyy-MM-dd'),
-      due_date: formData.due_date ? format(formData.due_date, 'yyyy-MM-dd') : null
+      due_date: formData.due_date ? format(formData.due_date, 'yyyy-MM-dd') : null,
+      interest_rate: formData.interest_rate ? parseFloat(formData.interest_rate) : null,
+      late_penalty: formData.late_penalty ? parseFloat(formData.late_penalty) : null
     });
     setLoading(false);
-    setFormData({ amount: '', description: '', date: new Date(), due_date: null });
+    setFormData({ amount: '', description: '', date: new Date(), due_date: null,interest_rate: '', late_penalty: '' });
     onOpenChange(false);
   };
 
@@ -294,6 +298,8 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                             className="h-9 text-sm"
                             min="0"
                             step="0.1"
+                            value={formData.interest_rate}
+                            onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
                           />
                         </div>
                         <div className="space-y-1">
@@ -303,6 +309,9 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                             placeholder="0"
                             className="h-9 text-sm"
                             min="0"
+                            step="1"
+                            value={formData.late_penalty}
+                            onChange={(e) => setFormData({ ...formData, late_penalty: e.target.value })}
                           />
                         </div>
                       </div>
@@ -312,34 +321,102 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
               </AnimatePresence>
             </motion.div>
 
-            {/* Résumé */}
-            {(formData.amount || formData.due_date) && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-4 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg border border-amber-200"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-amber-900">Récapitulatif</p>
-                    <div className="flex items-center gap-4">
-                      {formData.amount && (
-                        <p className="text-xs text-amber-700">
-                          <span className="font-medium">{formatAmount(formData.amount)} Ar</span>
-                        </p>
-                      )}
-                      {formData.due_date && (
-                        <p className="text-xs text-amber-700 flex items-center gap-1">
-                          <CalendarIcon className="h-3 w-3" />
-                          Échéance: {format(formData.due_date, 'dd/MM/yyyy', { locale: fr })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Sparkles className="h-5 w-5 text-amber-400" />
-                </div>
-              </motion.div>
-            )}
+          {/* Dans la section récapitulatif, après le code existant */}
+{(formData.amount || formData.due_date || formData.interest_rate || formData.late_penalty) && (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="p-4 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg border border-amber-200"
+  >
+    <div className="flex items-start justify-between">
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-amber-900">Récapitulatif de la dette</p>
+        
+        {/* Montant principal */}
+        {formData.amount && (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-amber-500" />
+            <p className="text-sm text-amber-800">
+              <span className="font-semibold">{formatAmount(formData.amount)} Ar</span> (principal)
+            </p>
+          </div>
+        )}
+
+        {/* Date d'échéance */}
+        {formData.due_date && (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <p className="text-xs text-amber-700 flex items-center gap-1">
+              <CalendarIcon className="h-3 w-3" />
+              Échéance: {format(formData.due_date, 'dd/MM/yyyy', { locale: fr })}
+              {daysUntilDue && (
+                <span className="ml-1 text-xs font-medium bg-amber-200 px-1.5 py-0.5 rounded">
+                  {daysUntilDue} jour{daysUntilDue > 1 ? 's' : ''}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Intérêts */}
+        {formData.interest_rate && parseFloat(formData.interest_rate) > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500" />
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-amber-800">
+                <span className="font-medium">{formData.interest_rate}%</span> d'intérêt annuel
+              </p>
+              {formData.amount && (
+                <span className="text-xs text-slate-600 bg-white px-1.5 py-0.5 rounded border">
+                  ≈ {formatAmount((parseFloat(formData.amount) * parseFloat(formData.interest_rate) / 100).toFixed(0))} Ar/an
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pénalités */}
+        {formData.late_penalty && parseFloat(formData.late_penalty) > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-red-500" />
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-amber-800">
+                <span className="font-medium">{formatAmount(formData.late_penalty)} Ar</span> de pénalité/jour
+              </p>
+              {daysUntilDue && (
+                <span className="text-xs text-red-600 font-medium">
+                  ≈ {formatAmount(parseFloat(formData.late_penalty) * daysUntilDue)} Ar au total
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Total estimé */}
+        {(formData.interest_rate || formData.late_penalty) && formData.amount && (
+          <div className="pt-2 mt-2 border-t border-amber-200">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-amber-900">Total estimé à l'échéance:</p>
+              <p className="text-sm font-bold text-amber-900">
+                {(() => {
+                  let total = parseFloat(formData.amount);
+                  if (formData.interest_rate) {
+                    total += (total * parseFloat(formData.interest_rate) / 100);
+                  }
+                  if (formData.late_penalty && daysUntilDue) {
+                    total += (parseFloat(formData.late_penalty) * daysUntilDue);
+                  }
+                  return formatAmount(total.toFixed(0));
+                })()} Ar
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+      <Sparkles className="h-5 w-5 text-amber-400" />
+    </div>
+  </motion.div>
+)}
 
             {/* Bouton d'action */}
             <motion.div

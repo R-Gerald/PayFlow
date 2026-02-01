@@ -133,7 +133,9 @@ public List<TransactionDto> list(@RequestParam(required = false) String from,
                         request.getTransactionDate() != null ? request.getTransactionDate() : LocalDate.now()
                 )
                 .setDueDate(request.getDueDate())
-                .setPaymentMethod(request.getPaymentMethod());
+                .setPaymentMethod(request.getPaymentMethod())
+                .setInterestRate(request.getInterestRate())
+                .setLatePenalty(request.getLatePenalty());
 
         Transaction saved = transactionRepository.save(tx);
 
