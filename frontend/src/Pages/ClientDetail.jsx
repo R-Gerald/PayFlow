@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import Papa from "papaparse";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
 import {
   Phone,
   FileText,
@@ -57,6 +56,9 @@ import TransactionItem from "@/components/transactions/TransactionItem";
 import AddDebtDialog from "@/components/transactions/AddDebtDialog";
 import AddPaymentDialog from "@/components/transactions/AddPaymentDialog";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -1033,65 +1035,94 @@ export default function ClientDetail() {
       </Dialog>
 
       {/* Dialog édition client */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Modifier le client</DialogTitle>
-            <DialogDescription>
-              Mettez à jour les informations de contact et les notes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Nom complet
-              </label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                placeholder="Nom et prénom"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Numéro de téléphone
-              </label>
-              <input
-                type="tel"
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                placeholder="+261 34 00 000 00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Notes
-              </label>
-              <textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                rows={3}
-                placeholder="Informations supplémentaires..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Annuler
-            </Button>
-            <Button onClick={() => updateClientMutation.mutate()}>
-              {updateClientMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Enregistrer les modifications
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+     <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+  <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
+    <DialogHeader>
+      <DialogTitle className="text-xl font-semibold text-slate-900">
+        Modifier le client
+      </DialogTitle>
+      <DialogDescription className="text-xs text-slate-500 mt-1">
+        Mettez à jour les informations de contact. Ces changements seront
+        pris en compte sur toutes les dettes et paiements liés à ce client.
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 py-4">
+      {/* Nom complet */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-700">
+          Nom complet <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+          placeholder="Ex : Rakoto Jean"
+        />
+        <p className="text-[11px] text-slate-400">
+          Utilisez le nom que vous connaissez dans votre commerce.
+        </p>
+      </div>
+
+      {/* Téléphone */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-700">
+          Numéro de téléphone{" "}
+          <span className="text-slate-400 font-normal">(optionnel)</span>
+        </label>
+        <input
+          type="tel"
+          value={editPhone}
+          onChange={(e) => setEditPhone(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+          placeholder="Ex : 034 12 345 67"
+        />
+        <p className="text-[11px] text-slate-400">
+          Pratique pour vous rappeler qui appeler en cas de retard.
+        </p>
+      </div>
+
+      {/* Notes */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-700">
+          Note interne{" "}
+          <span className="text-slate-400 font-normal">(optionnel)</span>
+        </label>
+        <textarea
+          value={editNotes}
+          onChange={(e) => setEditNotes(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent resize-none"
+          rows={3}
+          placeholder="Ex : Paie généralement en fin de semaine, client fidèle..."
+        />
+        <p className="text-[11px] text-slate-400">
+          Ces informations ne sont visibles que par vous dans PayFlow.
+        </p>
+      </div>
+    </div>
+
+    <DialogFooter className="flex items-center justify-between gap-2">
+      <Button
+        variant="outline"
+        onClick={() => setShowEditDialog(false)}
+        className="w-full sm:w-auto"
+      >
+        Annuler
+      </Button>
+      <Button
+        onClick={() => updateClientMutation.mutate()}
+        className="w-full sm:w-auto"
+        disabled={updateClientMutation.isPending || !editName.trim()}
+      >
+        {updateClientMutation.isPending && (
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        )}
+        Enregistrer
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* Dialog suppression client */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

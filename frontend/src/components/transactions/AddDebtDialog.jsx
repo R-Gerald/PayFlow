@@ -21,10 +21,10 @@ import {
   AlertCircle,
   Clock,
   TrendingDown,
-  CreditCard,
   CheckCircle2,
   Sparkles,
   DollarSign,
+  Info,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -57,7 +57,7 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
       late_penalty: formData.late_penalty ? parseFloat(formData.late_penalty) : null
     });
     setLoading(false);
-    setFormData({ amount: '', description: '', date: new Date(), due_date: null,interest_rate: '', late_penalty: '' });
+    setFormData({ amount: '', description: '', date: new Date(), due_date: null, interest_rate: '', late_penalty: '' });
     onOpenChange(false);
   };
 
@@ -72,6 +72,54 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
   };
 
   const daysUntilDue = getDaysUntilDue();
+
+  const calculateEstimatedCost = () => {
+    if (!formData.amount) return null;
+    
+    const principal = parseFloat(formData.amount);
+    let total = principal;
+    let breakdown = [];
+    
+    // Intérêt annuel (calcul proportionnel jusqu'à l'échéance)
+    if (formData.interest_rate && parseFloat(formData.interest_rate) > 0) {
+      // Taux d'intérêt annuel
+      const annualInterestRate = parseFloat(formData.interest_rate);
+      
+      // Si une date d'échéance est définie, on calcule l'intérêt proportionnel
+      let interestAmount = 0;
+      if (formData.due_date && daysUntilDue) {
+        // Intérêt proportionnel au nombre de jours (simple)
+        interestAmount = (principal * annualInterestRate * daysUntilDue) / (100 * 365);
+      } else {
+        // Si pas de date d'échéance, on prend l'intérêt annuel complet
+        interestAmount = (principal * annualInterestRate) / 100;
+      }
+      
+      total += interestAmount;
+      breakdown.push({
+        label: `Intérêt (${formData.interest_rate}% annuel)`,
+        amount: interestAmount,
+        color: 'text-green-600',
+        type: 'interest'
+      });
+    }
+    
+    // NOTE: Les pénalités ne sont PAS incluses dans le total estimé
+    // car elles ne s'appliquent qu'en cas de retard après l'échéance
+    if (formData.late_penalty && parseFloat(formData.late_penalty) > 0) {
+      breakdown.push({
+        label: `Pénalité de retard`,
+        amount: parseFloat(formData.late_penalty),
+        color: 'text-red-600',
+        type: 'penalty',
+        perDay: true
+      });
+    }
+    
+    return { total, breakdown };
+  };
+
+  const estimatedCost = calculateEstimatedCost();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,11 +143,26 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                   )}
                 </div>
               </div>
-              <div className="hidden sm:block">
-                <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium">
-                  <DollarSign className="h-3.5 w-3.5 mr-1" />
-                  Dette
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:block">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium">
+                    <DollarSign className="h-3.5 w-3.5 mr-1" />
+                    Dette
+                  </span>
+                </div>
+                {/* Badges d'alerte pour conditions spéciales */}
+                {formData.interest_rate && parseFloat(formData.interest_rate) > 0 && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
+                    <TrendingDown className="h-3 w-3 mr-1" />
+                    {formData.interest_rate}% intérêt
+                  </span>
+                )}
+                {formData.late_penalty && parseFloat(formData.late_penalty) > 0 && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {formatAmount(formData.late_penalty)} Ar/jour
+                  </span>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -191,9 +254,18 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                 <button
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                  className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
                 >
-                  {showAdvanced ? 'Masquer' : 'Options avancées'}
+                  {showAdvanced ? (
+                    <>
+                      <span>Masquer les options</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      <span>Options avancées</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -278,41 +350,122 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
                       <div className="flex items-start gap-2">
                         <AlertCircle className="h-4 w-4 text-slate-500 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-slate-700">Paramètres avancés</p>
+                          <p className="text-sm font-medium text-slate-700">Conditions de crédit</p>
                           <p className="text-xs text-slate-500 mt-1">
                             Définissez des conditions spécifiques pour cette dette
                           </p>
                         </div>
                       </div>
+
+                      {/* Pré-configurations pour PME */}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 bg-white"
+                          onClick={() => setFormData({ ...formData, interest_rate: '5', late_penalty: '1000' })}
+                        >
+                          <TrendingDown className="h-3 w-3 mr-1" />
+                          Crédit standard
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 bg-white"
+                          onClick={() => setFormData({ ...formData, interest_rate: '10', late_penalty: '2000' })}
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Prêt à risque
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 bg-white"
+                          onClick={() => setFormData({ ...formData, interest_rate: '', late_penalty: '' })}
+                        >
+                          ✕ Sans intérêt
+                        </Button>
+                      </div>
                       
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs text-slate-600">Intérêt (%)</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Intérêt */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs font-medium text-slate-600">Intérêt annuel (%)</Label>
+                            <div className="group relative">
+                              <span className="text-xs text-slate-400 cursor-help">
+                                <Info className="h-3 w-3" />
+                              </span>
+                              <div className="absolute z-10 hidden group-hover:block w-48 p-2 text-xs bg-slate-800 text-white rounded shadow-lg -translate-x-1/2 left-1/2">
+                                Pourcentage appliqué chaque année sur le montant restant
+                              </div>
+                            </div>
+                          </div>
                           <Input
                             type="number"
                             placeholder="0"
                             className="h-9 text-sm"
                             min="0"
+                            max="50"
                             step="0.1"
                             value={formData.interest_rate}
-                            onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 50)) {
+                                setFormData({ ...formData, interest_rate: value });
+                              }
+                            }}
                           />
+                          {formData.interest_rate && formData.amount && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-green-600 font-medium">
+                                ≈ {formatAmount(((parseFloat(formData.amount) * parseFloat(formData.interest_rate) / 100) * (daysUntilDue || 365) / 365).toFixed(0))} Ar d'intérêt
+                              </p>
+                              {daysUntilDue && (
+                                <p className="text-xs text-green-500">
+                                  ({formatAmount((parseFloat(formData.amount) * parseFloat(formData.interest_rate) / 100).toFixed(0))} Ar/an)
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-slate-600">Pénalité de retard</Label>
+                        
+                        {/* Pénalité */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs font-medium text-slate-600">Pénalité/jour (Ar)</Label>
+                            <div className="group relative">
+                              <span className="text-xs text-slate-400 cursor-help">
+                                <Info className="h-3 w-3" />
+                              </span>
+                              <div className="absolute z-10 hidden group-hover:block w-48 p-2 text-xs bg-slate-800 text-white rounded shadow-lg -translate-x-1/2 left-1/2">
+                                Montant fixe ajouté pour chaque jour de retard après l'échéance
+                              </div>
+                            </div>
+                          </div>
                           <Input
                             type="number"
                             placeholder="0"
                             className="h-9 text-sm"
                             min="0"
-                            step="1"
+                            step="100"
                             value={formData.late_penalty}
                             onChange={(e) => setFormData({ ...formData, late_penalty: e.target.value })}
                           />
+                          {formData.late_penalty && parseFloat(formData.late_penalty) > 0 && (
+                            <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded text-xs text-red-700">
+                              <AlertCircle className="h-3 w-3 inline mr-1" />
+                              <span className="font-medium">Note :</span> La pénalité de {formatAmount(formData.late_penalty)} Ar 
+                              s'applique uniquement pour chaque jour de retard <span className="font-medium">après</span> la date d'échéance.
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -321,102 +474,124 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
               </AnimatePresence>
             </motion.div>
 
-          {/* Dans la section récapitulatif, après le code existant */}
-{(formData.amount || formData.due_date || formData.interest_rate || formData.late_penalty) && (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="p-4 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg border border-amber-200"
-  >
-    <div className="flex items-start justify-between">
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-amber-900">Récapitulatif de la dette</p>
-        
-        {/* Montant principal */}
-        {formData.amount && (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-amber-500" />
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">{formatAmount(formData.amount)} Ar</span> (principal)
-            </p>
-          </div>
-        )}
+            {/* Récapitulatif détaillé */}
+            {(formData.amount || formData.due_date || formData.interest_rate || formData.late_penalty) && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg border border-amber-200"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-3 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-amber-900">Récapitulatif de la dette</p>
+                      {estimatedCost && (
+                        <span className="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded font-medium">
+                          Estimation
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {/* Montant principal */}
+                      {formData.amount && (
+                        <div className="flex items-start gap-3">
+                          <div className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-amber-800">Montant principal</p>
+                              <p className="text-sm font-bold text-amber-900">{formatAmount(formData.amount)} Ar</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-        {/* Date d'échéance */}
-        {formData.due_date && (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <p className="text-xs text-amber-700 flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              Échéance: {format(formData.due_date, 'dd/MM/yyyy', { locale: fr })}
-              {daysUntilDue && (
-                <span className="ml-1 text-xs font-medium bg-amber-200 px-1.5 py-0.5 rounded">
-                  {daysUntilDue} jour{daysUntilDue > 1 ? 's' : ''}
-                </span>
-              )}
-            </p>
-          </div>
-        )}
+                      {/* Date d'échéance */}
+                      {formData.due_date && (
+                        <div className="flex items-start gap-3">
+                          <div className="h-2 w-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-3 w-3 text-blue-500" />
+                                <p className="text-xs font-medium text-amber-700">Échéance</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-medium text-amber-900">
+                                  {format(formData.due_date, 'dd/MM/yyyy', { locale: fr })}
+                                </p>
+                                {daysUntilDue && (
+                                  <p className="text-xs text-amber-600 mt-0.5">
+                                    ({daysUntilDue} jour{daysUntilDue > 1 ? 's' : ''})
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-        {/* Intérêts */}
-        {formData.interest_rate && parseFloat(formData.interest_rate) > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-amber-800">
-                <span className="font-medium">{formData.interest_rate}%</span> d'intérêt annuel
-              </p>
-              {formData.amount && (
-                <span className="text-xs text-slate-600 bg-white px-1.5 py-0.5 rounded border">
-                  ≈ {formatAmount((parseFloat(formData.amount) * parseFloat(formData.interest_rate) / 100).toFixed(0))} Ar/an
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+                      {/* Détail des coûts additionnels */}
+                      {estimatedCost && estimatedCost.breakdown.map((item, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <div className={`h-2 w-2 rounded-full ${item.type === 'interest' ? 'bg-green-500' : 'bg-red-500'} mt-1.5 flex-shrink-0`} />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className={`text-xs font-medium ${item.color}`}>
+                                  {item.label}
+                                  {item.perDay && (
+                                    <span className="text-xs text-slate-500 ml-1">(par jour de retard)</span>
+                                  )}
+                                </p>
+                              </div>
+                              <p className={`text-xs font-bold ${item.color}`}>
+                                {item.type === 'interest' ? '+ ' : ''}
+                                {formatAmount(item.amount.toFixed(0))} Ar
+                                {item.perDay && <span className="text-xs font-normal ml-1">/jour</span>}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-        {/* Pénalités */}
-        {formData.late_penalty && parseFloat(formData.late_penalty) > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-red-500" />
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-amber-800">
-                <span className="font-medium">{formatAmount(formData.late_penalty)} Ar</span> de pénalité/jour
-              </p>
-              {daysUntilDue && (
-                <span className="text-xs text-red-600 font-medium">
-                  ≈ {formatAmount(parseFloat(formData.late_penalty) * daysUntilDue)} Ar au total
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+                    {/* Total estimé */}
+                    {estimatedCost && estimatedCost.total > parseFloat(formData.amount || 0) && (
+                      <div className="pt-3 mt-3 border-t border-amber-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-semibold text-amber-900">Total estimé à l'échéance</p>
+                            <p className="text-xs text-amber-600 mt-0.5">
+                              {formData.due_date ? 'Principal + intérêts (sans pénalité)' : 'Principal + intérêts'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-amber-900">
+                              {formatAmount(estimatedCost.total.toFixed(0))} Ar
+                            </p>
+                            <p className="text-xs text-amber-600 mt-0.5">
+                              (+ {formatAmount((estimatedCost.total - parseFloat(formData.amount || 0)).toFixed(0))} Ar de frais)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-        {/* Total estimé */}
-        {(formData.interest_rate || formData.late_penalty) && formData.amount && (
-          <div className="pt-2 mt-2 border-t border-amber-200">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-amber-900">Total estimé à l'échéance:</p>
-              <p className="text-sm font-bold text-amber-900">
-                {(() => {
-                  let total = parseFloat(formData.amount);
-                  if (formData.interest_rate) {
-                    total += (total * parseFloat(formData.interest_rate) / 100);
-                  }
-                  if (formData.late_penalty && daysUntilDue) {
-                    total += (parseFloat(formData.late_penalty) * daysUntilDue);
-                  }
-                  return formatAmount(total.toFixed(0));
-                })()} Ar
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-      <Sparkles className="h-5 w-5 text-amber-400" />
-    </div>
-  </motion.div>
-)}
+                    {/* Note sur les pénalités */}
+                    {formData.late_penalty && parseFloat(formData.late_penalty) > 0 && (
+                      <div className="pt-3 mt-2 border-t border-amber-200">
+                        <p className="text-xs text-amber-700">
+                          <span className="font-medium">ℹ️ Les pénalités</span> ({formatAmount(formData.late_penalty)} Ar/jour) 
+                          s'ajouteront au total en cas de retard après l'échéance.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <Sparkles className="h-5 w-5 text-amber-400 ml-4 flex-shrink-0" />
+                </div>
+              </motion.div>
+            )}
 
             {/* Bouton d'action */}
             <motion.div
@@ -461,6 +636,7 @@ export default function AddDebtDialog({ open, onOpenChange, onSubmit, clientName
                 variant="outline"
                 className="w-full h-10 mt-3 text-sm"
                 onClick={() => onOpenChange(false)}
+                disabled={loading}
               >
                 Annuler
               </Button>
