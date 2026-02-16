@@ -6,6 +6,8 @@ import com.project.payflow.repository.PaymentReminderRepository;
 import com.project.payflow.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.project.payflow.service.NotificationPreferencesService;
+import com.project.payflow.repository.OutboundNotificationRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,17 +21,23 @@ public class PaymentReminderService {
     private final PaymentReminderRepository paymentReminderRepository;
     private final BalanceService balanceService;
     private final ReminderSettingsService reminderSettingsService;
+    private final OutboundNotificationRepository outboundNotificationRepository;
+    private final NotificationPreferencesService notificationPreferencesService;
 
     public PaymentReminderService(TransactionRepository transactionRepository,
                                   NotificationRepository notificationRepository,
                                   PaymentReminderRepository paymentReminderRepository,
                                   BalanceService balanceService,
-                                  ReminderSettingsService reminderSettingsService) {
+                                  ReminderSettingsService reminderSettingsService,
+                                  OutboundNotificationRepository outboundNotificationRepository,
+                                  NotificationPreferencesService notificationPreferencesService) {
         this.transactionRepository = transactionRepository;
         this.notificationRepository = notificationRepository;
         this.paymentReminderRepository = paymentReminderRepository;
         this.balanceService = balanceService;
         this.reminderSettingsService = reminderSettingsService;
+        this.outboundNotificationRepository = outboundNotificationRepository;
+        this.notificationPreferencesService = notificationPreferencesService;
     }
   @Transactional
     public void generateDailyRemindersForMerchant(Merchant merchant) {
@@ -97,6 +105,25 @@ System.out.println("Balance client " + customerId + " = " + balance);
                     .setTitle(type.equals("DUE_SOON") ? "Paiement à échéance" : "Paiement en retard")
                     .setMessage(buildMessage(credit, type));
             notificationRepository.save(notif);
+
+            NotificationPreferences prefs =
+                    notificationPreferencesService.getOrCreateDefault(merchant, credit.getCustomer());
+
+                    
+                // Pour l’instant, on ne fait que IN_APP comme canal principal,
+                // mais la structure permet d’ajouter SMS/EMAIL plus tard
+                String channel = prefs.isAllowSms() ? "SMS" : "IN_APP";
+
+                OutboundNotification out = new OutboundNotification()
+                        .setMerchant(merchant)
+                        .setCustomer(credit.getCustomer())
+                        .setChannel(channel)
+                        .setType("REMINDER")
+                        .setTitle(notif.getTitle())
+                        .setMessage(notif.getMessage())
+                        .setStatus("PENDING");
+
+                outboundNotificationRepository.save(out);
 
             // 4) enregistrer l’historique
             PaymentReminder reminder = new PaymentReminder()
