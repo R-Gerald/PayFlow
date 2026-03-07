@@ -32,6 +32,13 @@ import {
   Shield,
   Sparkles,
   ChevronRight,
+  Bell,
+  Smartphone,
+  Mail,
+  MessageSquare,
+  Globe,
+  CheckCircle,
+  Settings,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -59,6 +66,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -69,6 +77,7 @@ export default function ClientDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [showReminderConfig, setShowReminderConfig] = useState(false);
   const [activeTab, setActiveTab] = useState("transactions");
 
   // Détails d'un crédit
@@ -314,6 +323,37 @@ export default function ClientDetail() {
     },
   });
 
+  // Notification preferences
+  const {
+    data: notifPrefs,
+    isLoading: loadingPrefs,
+  } = useQuery({
+    queryKey: ["notification-preferences", clientId],
+    queryFn: () => base44.entities.NotificationPreferences.getByCustomer(clientId),
+    enabled: clientId != null,
+  });
+
+  const updatePrefsMutation = useMutation({
+    mutationFn: (data) =>
+      base44.entities.NotificationPreferences.updateForCustomer(clientId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notification-preferences", clientId],
+      });
+      toast({
+        title: "✅ Préférences mises à jour",
+        description: "Les canaux de rappel pour ce client ont été enregistrés.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "❌ Erreur",
+        description: "Impossible de mettre à jour les préférences de rappel.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const exportCSV = () => {
     if (!transactions.length) {
       toast({ title: "Aucune donnée", description: "Aucune transaction à exporter.", variant: "destructive" });
@@ -426,12 +466,44 @@ export default function ClientDetail() {
 
   const riskInfo = getRiskLevel(stats.currentBalance, stats.avgPaymentDelay);
 
+  // Fonctions utilitaires pour les préférences
+  const getChannelLabel = (channel) => {
+    const channels = {
+      IN_APP: { label: "In-app", icon: Globe },
+      SMS: { label: "SMS", icon: Smartphone },
+      EMAIL: { label: "Email", icon: Mail },
+      WHATSAPP: { label: "WhatsApp", icon: MessageSquare },
+    };
+    return channels[channel] || channels.IN_APP;
+  };
+
+  const getActiveChannelsCount = (prefs) => {
+    if (!prefs) return 0;
+    return [prefs.allowInApp, prefs.allowSms, prefs.allowEmail, prefs.allowWhatsapp].filter(Boolean).length;
+  };
+
+  const getReminderSummary = (prefs) => {
+    if (!prefs) return "Non configuré";
+    
+    const parts = [];
+    if (prefs.autoReminders) {
+      parts.push(`Auto (J-${prefs.reminderDays || 3})`);
+    }
+    if (prefs.remindAfterDue) {
+      parts.push("+ après échéance");
+    }
+    
+    return parts.length > 0 ? parts.join(" • ") : "Rappels manuels";
+  };
+
+  const MainChannelIcon = notifPrefs ? getChannelLabel(notifPrefs.preferredChannel).icon : Globe;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header principal */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
+          <div className="py-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-4">
                 <Link to={createPageUrl("Clients")}>
@@ -444,12 +516,12 @@ export default function ClientDetail() {
                   </Button>
                 </Link>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <User className="h-5 w-5 text-slate-600" />
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-inner">
+                      <User className="h-6 w-6 text-slate-600" />
                     </div>
                     <div>
-                      <h1 className="text-xl font-semibold text-slate-900">
+                      <h1 className="text-2xl font-semibold text-slate-900">
                         {client.name}
                       </h1>
                       <div className="flex items-center gap-3 mt-1">
@@ -467,8 +539,6 @@ export default function ClientDetail() {
                   </div>
                 </div>
               </div>
-
-             
             </div>
           </div>
         </div>
@@ -477,7 +547,7 @@ export default function ClientDetail() {
       {/* Contenu principal */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne gauche - Cartes principales */}
+          {/* COLONNE GAUCHE - Informations principales */}
           <div className="lg:col-span-2 space-y-6">
             {/* Carte solde principal */}
             <motion.div
@@ -557,7 +627,7 @@ export default function ClientDetail() {
               </Card>
             </motion.div>
 
-            {/* Onglets personnalisés pour transactions/crédits */}
+            {/* Onglets transactions/crédits */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -773,7 +843,7 @@ export default function ClientDetail() {
             </motion.div>
           </div>
 
-          {/* Colonne droite - Actions rapides et infos */}
+          {/* COLONNE DROITE - Actions et informations secondaires */}
           <div className="space-y-6">
             {/* Actions rapides */}
             <motion.div
@@ -821,14 +891,15 @@ export default function ClientDetail() {
                   </Button>
 
                   <div className="h-px bg-slate-200 my-2" />
-                   <Button
-                  variant="ghost"
-                  onClick={() => setShowEditDialog(true)}
-                  className="w-full justify-start h-10 gap-3"
-                >
-                  <Edit className="h-4 w-4" />
-                  <span className="hidden sm:inline">Modifier</span>
-                </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowEditDialog(true)}
+                    className="w-full justify-start h-10 gap-3"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span className="hidden sm:inline">Modifier</span>
+                  </Button>
 
                   <Button
                     variant="ghost"
@@ -842,6 +913,116 @@ export default function ClientDetail() {
               </Card>
             </motion.div>
 
+            {/* Préférences de rappel - Carte compacte */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+              <Card className="border border-slate-200 bg-white overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-blue-50 flex items-center justify-center">
+                        <Bell className="h-3.5 w-3.5 text-blue-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        Rappels
+                      </h3>
+                    </div>
+                    {notifPrefs && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {getActiveChannelsCount(notifPrefs)} canal(aux) actif(s)
+                      </span>
+                    )}
+                  </div>
+
+                  {loadingPrefs ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                    </div>
+                  ) : notifPrefs ? (
+                    <div className="space-y-3">
+                      {/* Canal principal */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Canal principal</span>
+                        <div className="flex items-center gap-1.5">
+                          <MainChannelIcon className="h-3.5 w-3.5 text-slate-600" />
+                          <span className="text-xs font-medium text-slate-700">
+                            {getChannelLabel(notifPrefs.preferredChannel).label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Canaux secondaires - icônes compactes */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {notifPrefs.allowInApp && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100">
+                            <Globe className="h-3 w-3 text-slate-500" />
+                            <span className="text-[10px] text-slate-600">In-app</span>
+                          </div>
+                        )}
+                        {notifPrefs.allowSms && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100">
+                            <Smartphone className="h-3 w-3 text-slate-500" />
+                            <span className="text-[10px] text-slate-600">SMS</span>
+                          </div>
+                        )}
+                        {notifPrefs.allowEmail && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100">
+                            <Mail className="h-3 w-3 text-slate-500" />
+                            <span className="text-[10px] text-slate-600">Email</span>
+                          </div>
+                        )}
+                        {notifPrefs.allowWhatsapp && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100">
+                            <MessageSquare className="h-3 w-3 text-slate-500" />
+                            <span className="text-[10px] text-slate-600">WhatsApp</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Résumé automatisation */}
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        {getReminderSummary(notifPrefs)}
+                      </div>
+
+                      {/* Bouton de configuration */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full h-7 text-xs gap-1 mt-1"
+                        onClick={() => setShowReminderConfig(true)}
+                      >
+                        <Settings className="h-3 w-3" />
+                        Configurer
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 text-xs"
+                      onClick={() => {
+                        updatePrefsMutation.mutate({
+                          preferredChannel: "IN_APP",
+                          allowInApp: true,
+                          allowSms: false,
+                          allowEmail: false,
+                          allowWhatsapp: false,
+                          autoReminders: true,
+                          reminderDays: 3,
+                          remindAfterDue: true,
+                        });
+                      }}
+                    >
+                      Activer les rappels
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+
             {/* Prochaines échéances */}
             {openCredits.filter(c => c.due_date).length > 0 && (
               <motion.div
@@ -849,12 +1030,12 @@ export default function ClientDetail() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
               >
-                <Card className="p-6 border border-slate-200 bg-white">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-slate-700" />
+                <Card className="p-4 border border-slate-200 bg-white">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-700" />
                     Prochaines échéances
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {openCredits
                       .filter(c => c.due_date)
                       .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
@@ -865,27 +1046,27 @@ export default function ClientDetail() {
                         );
                         
                         return (
-                          <div key={credit.id} className="p-3 rounded-lg border border-slate-200">
+                          <div key={credit.id} className="p-2 rounded-lg border border-slate-100">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-slate-900">Crédit #{credit.id}</p>
-                                <p className="text-slate-500 text-xs">
+                                <p className="text-xs font-medium text-slate-900">Crédit #{credit.id}</p>
+                                <p className="text-[10px] text-slate-500">
                                   {new Date(credit.due_date).toLocaleDateString('fr-FR')}
                                 </p>
                               </div>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                                 daysUntilDue < 0 
                                   ? "bg-red-100 text-red-800" 
                                   : daysUntilDue <= 3 
-                                  ? "border border-amber-300 text-amber-600 bg-amber-50"
-                                  : "bg-slate-100 text-slate-800"
+                                  ? "bg-amber-50 text-amber-600 border border-amber-200"
+                                  : "bg-slate-100 text-slate-600"
                               }`}>
                                 {daysUntilDue < 0 ? 
-                                  `${Math.abs(daysUntilDue)}j de retard` : 
-                                  `${daysUntilDue}j restant`}
+                                  `${Math.abs(daysUntilDue)}j retard` : 
+                                  `J-${daysUntilDue}`}
                               </span>
                             </div>
-                            <p className="text-sm font-semibold text-slate-900 mt-2">
+                            <p className="text-xs font-semibold text-slate-900 mt-1">
                               {formatAr(credit.remaining_amount)}
                             </p>
                           </div>
@@ -896,55 +1077,49 @@ export default function ClientDetail() {
               </motion.div>
             )}
 
-            {/* Conseils */}
+            {/* Recommandations */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.3 }}
             >
-              <Card className="p-6 border border-slate-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-blue-500" />
+              <Card className="p-4 border border-slate-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-500" />
                   Recommandations
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {riskInfo.level === "high" && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                    <div className="p-2 rounded-lg bg-red-50 border border-red-200">
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-600 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-red-900">Risque élevé détecté</p>
-                          <p className="text-xs text-red-700 mt-1">
-                            Considérez un rappel client et une révision des conditions.
-                          </p>
+                          <p className="text-xs font-medium text-red-900">Risque élevé</p>
+                          <p className="text-[10px] text-red-700">Rappel recommandé</p>
                         </div>
                       </div>
                     </div>
                   )}
                   
                   {stats.avgPaymentDelay > 30 && (
-                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                      <div className="flex items-start gap-2">
-                        <Clock className="h-4 w-4 text-amber-600 mt-0.5" />
+                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className="flex items-start gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-amber-600 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-amber-900">Délai de paiement long</p>
-                          <p className="text-xs text-amber-700 mt-1">
-                            Délai moyen de {stats.avgPaymentDelay} jours. Pensez à des rappels automatiques.
-                          </p>
+                          <p className="text-xs font-medium text-amber-900">Délai long</p>
+                          <p className="text-[10px] text-amber-700">{stats.avgPaymentDelay} jours en moyenne</p>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {stats.paymentRate > 80 && (
-                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                      <div className="flex items-start gap-2">
-                        <TrendingUp className="h-4 w-4 text-emerald-600 mt-0.5" />
+                    <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <div className="flex items-start gap-1.5">
+                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-emerald-900">Bon payeur</p>
-                          <p className="text-xs text-emerald-700 mt-1">
-                            Taux de paiement de {stats.paymentRate.toFixed(1)}%. Vous pouvez proposer des conditions avantageuses.
-                          </p>
+                          <p className="text-xs font-medium text-emerald-900">Bon payeur</p>
+                          <p className="text-[10px] text-emerald-700">Taux de {stats.paymentRate.toFixed(1)}%</p>
                         </div>
                       </div>
                     </div>
@@ -1034,95 +1209,270 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog configuration des rappels */}
+      <Dialog open={showReminderConfig} onOpenChange={setShowReminderConfig}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Bell className="h-5 w-5 text-blue-600" />
+              Configuration des rappels
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Personnalisez comment et quand {client?.name} reçoit les rappels de paiement.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingPrefs ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+          ) : notifPrefs ? (
+            <div className="space-y-5 py-4">
+              {/* Canal principal */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 block">
+                  Canal principal de contact
+                </label>
+                <p className="text-xs text-slate-500 mb-2">
+                  Ce canal sera utilisé en priorité pour les rappels urgents.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "IN_APP", label: "In-app", icon: Globe, desc: "Dans l'application" },
+                    { value: "SMS", label: "SMS", icon: Smartphone, desc: "Message texte" },
+                    { value: "EMAIL", label: "Email", icon: Mail, desc: "Courriel" },
+                    { value: "WHATSAPP", label: "WhatsApp", icon: MessageSquare, desc: "Messagerie" },
+                  ].map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = notifPrefs.preferredChannel === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          updatePrefsMutation.mutate({
+                            ...notifPrefs,
+                            preferredChannel: option.value,
+                          })
+                        }
+                        className={`flex flex-col items-start p-3 rounded-lg border transition-all ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <Icon className={`h-4 w-4 ${isSelected ? "text-blue-600" : "text-slate-500"}`} />
+                          <span className={`text-xs font-medium ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
+                            {option.label}
+                          </span>
+                          {isSelected && (
+                            <CheckCircle className="h-3.5 w-3.5 text-blue-600 ml-auto" />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 mt-1">{option.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Séparateur */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white text-slate-400">Canaux secondaires</span>
+                </div>
+              </div>
+
+              {/* Canaux secondaires avec toggles */}
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  Activez plusieurs canaux pour maximiser les chances que le client reçoive le rappel.
+                </p>
+                
+                {[
+                  { key: "allowInApp", label: "Notifications in-app", icon: Globe, desc: "Visible dans l'application" },
+                  { key: "allowSms", label: "SMS", icon: Smartphone, desc: "Nécessite un numéro valide" },
+                  { key: "allowEmail", label: "Email", icon: Mail, desc: "Nécessite une adresse email" },
+                  { key: "allowWhatsapp", label: "WhatsApp", icon: MessageSquare, desc: "Messagerie instantanée" },
+                ].map((channel) => {
+                  const Icon = channel.icon;
+                  const isEnabled = notifPrefs[channel.key];
+                  return (
+                    <div
+                      key={channel.key}
+                      className="flex items-center justify-between p-3 rounded-lg bg-slate-50"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`h-8 w-8 rounded-full ${isEnabled ? 'bg-blue-100' : 'bg-slate-200'} flex items-center justify-center flex-shrink-0`}>
+                          <Icon className={`h-4 w-4 ${isEnabled ? 'text-blue-600' : 'text-slate-500'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{channel.label}</p>
+                          <p className="text-xs text-slate-400">{channel.desc}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={(checked) =>
+                          updatePrefsMutation.mutate({
+                            ...notifPrefs,
+                            [channel.key]: checked,
+                          })
+                        }
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Message de confirmation */}
+              {updatePrefsMutation.isPending && (
+                <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Mise à jour des préférences...</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Settings className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-500">Configuration non disponible</p>
+              <Button
+                className="mt-4"
+                size="sm"
+                onClick={() => {
+                  updatePrefsMutation.mutate({
+                    preferredChannel: "IN_APP",
+                    allowInApp: true,
+                    allowSms: false,
+                    allowEmail: false,
+                    allowWhatsapp: false,
+                    autoReminders: true,
+                    reminderDays: 3,
+                    remindAfterDue: true,
+                  });
+                }}
+              >
+                Initialiser les préférences
+              </Button>
+            </div>
+          )}
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => setShowReminderConfig(false)}
+            >
+              Fermer
+            </Button>
+            <Button
+              onClick={() => {
+                setShowReminderConfig(false);
+                toast({
+                  title: "✅ Configuration sauvegardée",
+                  description: "Les préférences de rappel ont été mises à jour.",
+                });
+              }}
+            >
+              Terminé
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog édition client */}
-     <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-  <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
-    <DialogHeader>
-      <DialogTitle className="text-xl font-semibold text-slate-900">
-        Modifier le client
-      </DialogTitle>
-      <DialogDescription className="text-xs text-slate-500 mt-1">
-        Mettez à jour les informations de contact. Ces changements seront
-        pris en compte sur toutes les dettes et paiements liés à ce client.
-      </DialogDescription>
-    </DialogHeader>
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-slate-900">
+              Modifier le client
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-1">
+              Mettez à jour les informations de contact. Ces changements seront
+              pris en compte sur toutes les dettes et paiements liés à ce client.
+            </DialogDescription>
+          </DialogHeader>
 
-    <div className="space-y-4 py-4">
-      {/* Nom complet */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-slate-700">
-          Nom complet <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-          placeholder="Ex : Rakoto Jean"
-        />
-        <p className="text-[11px] text-slate-400">
-          Utilisez le nom que vous connaissez dans votre commerce.
-        </p>
-      </div>
+          <div className="space-y-4 py-4">
+            {/* Nom complet */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-700">
+                Nom complet <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                placeholder="Ex : Rakoto Jean"
+              />
+              <p className="text-[11px] text-slate-400">
+                Utilisez le nom que vous connaissez dans votre commerce.
+              </p>
+            </div>
 
-      {/* Téléphone */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-slate-700">
-          Numéro de téléphone{" "}
-          <span className="text-slate-400 font-normal">(optionnel)</span>
-        </label>
-        <input
-          type="tel"
-          value={editPhone}
-          onChange={(e) => setEditPhone(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-          placeholder="Ex : 034 12 345 67"
-        />
-        <p className="text-[11px] text-slate-400">
-          Pratique pour vous rappeler qui appeler en cas de retard.
-        </p>
-      </div>
+            {/* Téléphone */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-700">
+                Numéro de téléphone{" "}
+                <span className="text-slate-400 font-normal">(optionnel)</span>
+              </label>
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                placeholder="Ex : 034 12 345 67"
+              />
+              <p className="text-[11px] text-slate-400">
+                Pratique pour vous rappeler qui appeler en cas de retard.
+              </p>
+            </div>
 
-      {/* Notes */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-slate-700">
-          Note interne{" "}
-          <span className="text-slate-400 font-normal">(optionnel)</span>
-        </label>
-        <textarea
-          value={editNotes}
-          onChange={(e) => setEditNotes(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent resize-none"
-          rows={3}
-          placeholder="Ex : Paie généralement en fin de semaine, client fidèle..."
-        />
-        <p className="text-[11px] text-slate-400">
-          Ces informations ne sont visibles que par vous dans PayFlow.
-        </p>
-      </div>
-    </div>
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-700">
+                Note interne{" "}
+                <span className="text-slate-400 font-normal">(optionnel)</span>
+              </label>
+              <textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent resize-none"
+                rows={3}
+                placeholder="Ex : Paie généralement en fin de semaine, client fidèle..."
+              />
+              <p className="text-[11px] text-slate-400">
+                Ces informations ne sont visibles que par vous dans PayFlow.
+              </p>
+            </div>
+          </div>
 
-    <DialogFooter className="flex items-center justify-between gap-2">
-      <Button
-        variant="outline"
-        onClick={() => setShowEditDialog(false)}
-        className="w-full sm:w-auto"
-      >
-        Annuler
-      </Button>
-      <Button
-        onClick={() => updateClientMutation.mutate()}
-        className="w-full sm:w-auto"
-        disabled={updateClientMutation.isPending || !editName.trim()}
-      >
-        {updateClientMutation.isPending && (
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        )}
-        Enregistrer
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+          <DialogFooter className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              className="w-full sm:w-auto"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => updateClientMutation.mutate()}
+              className="w-full sm:w-auto"
+              disabled={updateClientMutation.isPending || !editName.trim()}
+            >
+              {updateClientMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              )}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog suppression client */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

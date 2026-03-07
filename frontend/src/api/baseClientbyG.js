@@ -220,5 +220,15 @@ async getCreditPaymentHistory(creditId) {
           return res.data;
         },
       },
+      NotificationPreferences: {
+      async getByCustomer(customerId) {
+        const res = await api.get(`/me/customers/${customerId}/notification-preferences`);
+        return res.data; // { preferredChannel, allowInApp, allowSms, allowWhatsapp, allowEmail }
+      },
+      async updateForCustomer(customerId, data) {
+        const res = await api.put(`/me/customers/${customerId}/notification-preferences`, data);
+        return res.data;
+      },
+    },
   },
 };

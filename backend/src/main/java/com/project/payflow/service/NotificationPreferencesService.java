@@ -30,4 +30,7 @@ public class NotificationPreferencesService {
                     return repo.save(np);
                 });
     }
+    public NotificationPreferences save(NotificationPreferences np) {
+    return repo.save(np);
+}
 }
